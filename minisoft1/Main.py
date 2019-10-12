@@ -6,9 +6,8 @@ from PIL import ImageTk
 import os
 
 PATH_IMAGES = './images/'
-PATH_PROCESSED = PATH_IMAGES + 'processed/'
 PATH_RULES = PATH_IMAGES + 'rules/'
-
+PATH_PROCESSED = PATH_IMAGES + 'processed/'
 
 class Node:
     def __init__(self, data, next=None):
@@ -58,7 +57,7 @@ class Rule:
 
         self.image = PhotoImage(PATH_RULES + file_name + '.png')
 
-        
+
 class Character:
     HEIGHT = 50
     WIDTH = 170
@@ -102,7 +101,7 @@ class Main:
                 self.rules[row] = rule
                 row = file.readline().strip()
             print(self.rules)
-
+        self.init_words('a,b,c,d','a,b,b,c,d,a')
         self.init_paint()
 
     def init_paint(self):
@@ -113,10 +112,37 @@ class Main:
             self.button_rules.append(Button(master=self.canvas, command=lambda: self.apply_rule(key), image=rule.image))
             self.button_rules[-1].place(x=x, y=y)
             y += rule.height+10
-            pass
+        initY = y
+        pom = self.start
+        x = 0
+        while pom is not None:
+            print(type(pom.data.image))
+            self.canvas.create_image(x,y,image=pom.data.image,anchor=NW)
+            y += Character.HEIGHT-10
+            pom = pom.next
+        y = initY
+        pom = self.goal
+        x = +Character.WIDTH
+        while pom is not None:
+            print(type(pom.data.image))
+            self.canvas.create_image(x, y, image=pom.data.image, anchor=NW)
+            y += Character.HEIGHT - 10
+            pom = pom.next
 
-    def init_word(self, word):
-        pass
+    def init_words(self, word1, word2):
+        characters = word1.split(',')
+        self.start = Node(self.characters[characters[0]])
+        pom = self.start
+        for c in characters[1:]:
+            pom.next = Node(self.characters[c])
+            pom = pom.next
+
+        characters = word2.split(',')
+        self.goal = Node(self.characters[characters[0]])
+        pom = self.goal
+        for c in characters[1:]:
+            pom.next = Node(self.characters[c])
+            pom = pom.next
 
     def apply_rule(self, key):
         pass
