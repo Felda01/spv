@@ -16,7 +16,21 @@ class Node:
         self.next_node = next_node
 
 
+class Character:
+    HEIGHT = 40
+    WIDTH = 130
+    ARROW = 32
+
+    def __init__(self, file_name, name):
+        self.char_name = name
+        self.file_name = file_name
+        image = Image.open(file_name)
+        image = image.resize((self.WIDTH, self.HEIGHT), Image.ANTIALIAS)
+        image.save(PATH_PROCESSED + self.char_name + '.png', 'PNG')
+        self.image = ImageTk.PhotoImage(Image.open(PATH_PROCESSED + self.char_name + '.png'))
+
 class Rule:
+    RULE_WIDTH = Character.WIDTH * 2 + Character.ARROW
     def __init__(self, line):
         self.name = line.strip()
         array = self.name.split(' -> ')
@@ -59,24 +73,27 @@ class Rule:
         self.image = ImageTk.PhotoImage(Image.open(PATH_RULES + file_name + '.png'))
 
 
-class Character:
-    HEIGHT = 40
-    WIDTH = 130
-    ARROW = 32
-
-    def __init__(self, file_name, name):
-        self.char_name = name
-        self.file_name = file_name
-        image = Image.open(file_name)
-        image = image.resize((self.WIDTH, self.HEIGHT), Image.ANTIALIAS)
-        image.save(PATH_PROCESSED + self.char_name + '.png', 'PNG')
-        self.image = ImageTk.PhotoImage(Image.open(PATH_PROCESSED + self.char_name + '.png'))
-
-
 class Main:
+    WINDOW_WIDTH = 1000
+    WINDOW_HEIGHT = 750
+    TOP_WIDTH = WINDOW_WIDTH
+    TOP_HEIGHT = 50
+    LEFT_WIDTH = Rule.RULE_WIDTH+20
+    LEFT_HEIGHT = WINDOW_HEIGHT - TOP_HEIGHT
+    RIGHT_WIDTH = TOP_WIDTH - LEFT_WIDTH
+    RIGHT_HEIGHT = LEFT_HEIGHT
+
     def __init__(self, file_name='config.txt'):
-        self.canvas = Canvas(width=1000, height=700, bg='#bada55')
-        self.canvas.pack()
+        self.window = Tk()
+        self.window.title('Burgraren')
+        frame = Frame(self.window).pack()
+        self.canvas_top = Canvas(frame, width=self.TOP_WIDTH, height=self.TOP_HEIGHT, bg='green')
+        self.canvas_top.pack(side=TOP, expand=False)
+        self.canvas_left = Canvas(frame, width=self.LEFT_WIDTH, height=self.LEFT_HEIGHT, bg='#bada55')
+        self.canvas_left.pack(side=LEFT, expand=False)
+        self.canvas_right = Canvas(frame, width=self.RIGHT_WIDTH, height=self.RIGHT_HEIGHT, bg='lightgreen')
+        self.canvas_right.pack(side=RIGHT, expand=False)
+
         self.characters = dict()
         self.rules = dict()
         self.button_rules = []
@@ -108,37 +125,37 @@ class Main:
 
     def init_paint(self):
         self.button_rules = []
-        x = 0
-        y = 50
+        x = 10
+        y = 10
         for key in self.rules:
             rule = self.rules[key]
-            self.button_rules.append(Button(master=self.canvas,command= lambda: self.apply_rule(key),image=rule.image))
+            self.button_rules.append(Button(master=self.canvas_left, command= lambda: self.apply_rule(key), image=rule.image))
             self.button_rules[-1].place(x=x,y=y)
             y += rule.height+10
         initY = y
         pom = self.start
-        x = 0
+        x = 10
 
-        self.canvas.create_image(x,y,image=self.burger[0],anchor=NW)
+        self.canvas_left.create_image(x, y, image=self.burger[0], anchor=NW)
         y += Character.HEIGHT
         while pom is not None:
-            self.canvas.create_image(x,y,image=pom.data.image,anchor=NW)
+            self.canvas_left.create_image(x, y, image=pom.data.image, anchor=NW)
             y += Character.HEIGHT
             pom = pom.next_node
         print(y)
-        self.canvas.create_image(x, y, image=self.burger[1],anchor=NW)
+        self.canvas_left.create_image(x, y, image=self.burger[1], anchor=NW)
 
         y = initY
         pom = self.goal
         x = +Character.WIDTH
 
-        self.canvas.create_image(x, y, image=self.burger[0],anchor=NW)
+        self.canvas_left.create_image(x, y, image=self.burger[0], anchor=NW)
         y += Character.HEIGHT
         while pom is not None:
-            self.canvas.create_image(x, y, image=pom.data.image, anchor=NW)
+            self.canvas_left.create_image(x, y, image=pom.data.image, anchor=NW)
             y += Character.HEIGHT
             pom = pom.next_node
-        self.canvas.create_image(x, y, image=self.burger[1],anchor=NW)
+        self.canvas_left.create_image(x, y, image=self.burger[1], anchor=NW)
 
     def init_words(self, word1, word2):
         characters = word1.split(',')
@@ -161,4 +178,4 @@ class Main:
 
 if __name__ == '__main__':
     main = Main()
-    main.canvas.mainloop()
+    main.window.mainloop()
