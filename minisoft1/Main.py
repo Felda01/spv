@@ -46,12 +46,10 @@ class Rule:
             new_image.paste(im, (Character.WIDTH+Character.ARROW,y_offset))
             y_offset += Character.HEIGHT
         file_name = self.name.replace(',','_').replace(' -> ','A')
-        print(new_image)
         new_image.save('./images/rules/'+file_name+'.png',"PNG")
 
         self.image = PhotoImage(file='./images/rules/'+file_name+'.png')
 
-        
 class Character:
     HEIGHT = 50
     WIDTH = 170
@@ -62,16 +60,17 @@ class Character:
         image = Image.open(file_name)
         image = image.resize((self.WIDTH,self.HEIGHT), Image.ANTIALIAS)
         image.save('./images/processed/'+self.char_name+'.png','PNG')
-        self.image = PhotoImage('./images/processed/'+self.char_name+'.png')
+        self.image = PhotoImage(file='./images/processed/'+self.char_name+'.png')
 
 class Main:
     def __init__(self, file_name='config.txt'):
-        self.canvas = Canvas(width=1000,height=600,bg='#bada55')
+        self.canvas = Canvas(width=1000,height=700,bg='#bada55')
         self.canvas.pack()
         self.characters = dict()
         self.rules = dict()
         self.burger = [PhotoImage(file='./images/burger_top.png'),PhotoImage('./images/burger_bottom.png')]
-        self.root = None
+        self.start = None
+        self.goal = None
         with open(file_name,'r') as file:
             row = file.readline().strip()
 
@@ -88,7 +87,7 @@ class Main:
                 self.rules[row] = rule
                 row = file.readline().strip()
             print(self.rules)
-
+        self.init_words('a,b,c,d','a,b,b,c,d,a')
         self.init_piant()
 
     def init_piant(self):
@@ -100,10 +99,41 @@ class Main:
             self.button_rules.append(Button(master=self.canvas,command= lambda: self.apply_rule(key),image=rule.image))
             self.button_rules[-1].place(x=x,y=y)
             y += rule.height+10
-            pass
+        initY = y
+        pom = self.start
+        x = 0
+        while pom is not None:
+            print(type(pom.data.image))
+            self.canvas.create_image(x,y,image=pom.data.image,anchor=NW)
+            y += Character.HEIGHT-10
+            pom = pom.next
+        y = initY
+        pom = self.goal
+        x = +Character.WIDTH
+        while pom is not None:
+            print(type(pom.data.image))
+            self.canvas.create_image(x, y, image=pom.data.image, anchor=NW)
+            y += Character.HEIGHT - 10
+            pom = pom.next
 
-    def init_word(self,word):
-        pass
+    def init_words(self, word1, word2):
+        characters = word1.split(',')
+        self.start = Node(self.characters[characters[0]])
+        pom = self.start
+        for c in characters[1:]:
+            pom.next = Node(self.characters[c])
+            pom = pom.next
+
+        characters = word2.split(',')
+        self.goal = Node(self.characters[characters[0]])
+        pom = self.goal
+        for c in characters[1:]:
+            pom.next = Node(self.characters[c])
+            pom = pom.next
+
+
+
+
 
     def apply_rule(self, key):
         pass
