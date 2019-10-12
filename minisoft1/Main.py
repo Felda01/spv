@@ -9,10 +9,11 @@ PATH_IMAGES = './images/'
 PATH_RULES = PATH_IMAGES + 'rules/'
 PATH_PROCESSED = PATH_IMAGES + 'processed/'
 
+
 class Node:
-    def __init__(self, data, next=None):
+    def __init__(self, data, next_node=None):
         self.data = data
-        self.next = next
+        self.next_node = next_node
 
 
 class Rule:
@@ -55,12 +56,12 @@ class Rule:
 
         new_image.save(PATH_RULES + file_name + '.png', "PNG")
 
-        self.image = PhotoImage(PATH_RULES + file_name + '.png')
+        self.image = ImageTk.PhotoImage(Image.open(PATH_RULES + file_name + '.png'))
 
 
 class Character:
-    HEIGHT = 50
-    WIDTH = 170
+    HEIGHT = 40
+    WIDTH = 130
     ARROW = 32
 
     def __init__(self, file_name, name):
@@ -69,12 +70,12 @@ class Character:
         image = Image.open(file_name)
         image = image.resize((self.WIDTH, self.HEIGHT), Image.ANTIALIAS)
         image.save(PATH_PROCESSED + self.char_name + '.png', 'PNG')
-        self.image = PhotoImage(PATH_PROCESSED + self.char_name + '.png')
+        self.image = ImageTk.PhotoImage(Image.open(PATH_PROCESSED + self.char_name + '.png'))
 
 
 class Main:
     def __init__(self, file_name='config.txt'):
-        self.canvas = Canvas(width=1000, height=600, bg='#bada55')
+        self.canvas = Canvas(width=1000, height=700, bg='#bada55')
         self.canvas.pack()
         self.characters = dict()
         self.rules = dict()
@@ -83,7 +84,8 @@ class Main:
         os.makedirs(PATH_PROCESSED, exist_ok=True)
         os.makedirs(PATH_RULES, exist_ok=True)
 
-        self.burger = [PhotoImage(PATH_IMAGES + 'burger_top.png'), PhotoImage(PATH_IMAGES + 'burger_bottom.png')]
+        self.burger = [ImageTk.PhotoImage(Image.open(PATH_IMAGES + 'burger_top.png')),
+                        ImageTk.PhotoImage(Image.open(PATH_IMAGES + 'burger_bottom.png'))]
         self.root = None
         with open(file_name, 'r') as file:
             row = file.readline().strip()
@@ -105,44 +107,53 @@ class Main:
         self.init_paint()
 
     def init_paint(self):
+        self.button_rules = []
         x = 0
-        y = 0
+        y = 50
         for key in self.rules:
             rule = self.rules[key]
-            self.button_rules.append(Button(master=self.canvas, command=lambda: self.apply_rule(key), image=rule.image))
-            self.button_rules[-1].place(x=x, y=y)
+            self.button_rules.append(Button(master=self.canvas,command= lambda: self.apply_rule(key),image=rule.image))
+            self.button_rules[-1].place(x=x,y=y)
             y += rule.height+10
         initY = y
         pom = self.start
         x = 0
+
+        self.canvas.create_image(x,y,image=self.burger[0],anchor=NW)
+        y += Character.HEIGHT
         while pom is not None:
-            print(type(pom.data.image))
             self.canvas.create_image(x,y,image=pom.data.image,anchor=NW)
-            y += Character.HEIGHT-10
-            pom = pom.next
+            y += Character.HEIGHT
+            pom = pom.next_node
+        print(y)
+        self.canvas.create_image(x, y, image=self.burger[1],anchor=NW)
+
         y = initY
         pom = self.goal
         x = +Character.WIDTH
+
+        self.canvas.create_image(x, y, image=self.burger[0],anchor=NW)
+        y += Character.HEIGHT
         while pom is not None:
-            print(type(pom.data.image))
             self.canvas.create_image(x, y, image=pom.data.image, anchor=NW)
-            y += Character.HEIGHT - 10
-            pom = pom.next
+            y += Character.HEIGHT
+            pom = pom.next_node
+        self.canvas.create_image(x, y, image=self.burger[1],anchor=NW)
 
     def init_words(self, word1, word2):
         characters = word1.split(',')
         self.start = Node(self.characters[characters[0]])
         pom = self.start
         for c in characters[1:]:
-            pom.next = Node(self.characters[c])
-            pom = pom.next
+            pom.next_node = Node(self.characters[c])
+            pom = pom.next_node
 
         characters = word2.split(',')
         self.goal = Node(self.characters[characters[0]])
         pom = self.goal
         for c in characters[1:]:
-            pom.next = Node(self.characters[c])
-            pom = pom.next
+            pom.next_node = Node(self.characters[c])
+            pom = pom.next_node
 
     def apply_rule(self, key):
         pass
