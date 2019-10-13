@@ -1,4 +1,4 @@
 ./images/characters
 a -> a,b
 b -> a,a,c
-c -> b,c
+d -> d,a
