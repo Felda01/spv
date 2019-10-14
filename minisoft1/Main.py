@@ -1,10 +1,13 @@
 from tkinter import *
+from tkinter import messagebox
+from tkinter import filedialog
 import glob
 import sys
 from PIL import Image
 from PIL import ImageTk
 import os
 from functools import partial
+import random
 
 PATH_IMAGES = './images/'
 PATH_RULES = PATH_IMAGES + 'rules/'
@@ -94,23 +97,49 @@ class Main:
     TOP_HEIGHT = 50
     LEFT_WIDTH = Rule.RULE_WIDTH+20
     LEFT_HEIGHT = WINDOW_HEIGHT - TOP_HEIGHT
-    RIGHT_WIDTH = TOP_WIDTH - LEFT_WIDTH
+    RIGHT_WIDTH = TOP_WIDTH - LEFT_WIDTH-25
     RIGHT_HEIGHT = LEFT_HEIGHT
 
-    def __init__(self, file_name='config.txt'):
+    def __init__(self):
         self.window = Tk()
         self.window.title('Burgraren')
         frame = Frame(self.window).pack()
         self.canvas_top = Canvas(frame, width=self.TOP_WIDTH, height=self.TOP_HEIGHT, bg='green')
         self.canvas_top.pack(side=TOP, expand=False)
-        self.canvas_left = Canvas(frame, width=self.LEFT_WIDTH, height=self.LEFT_HEIGHT, bg='#bada55')
-        self.canvas_left.pack(side=LEFT, expand=False)
+
+        self.canvas_left = Canvas(frame, width=self.LEFT_WIDTH, height=self.LEFT_HEIGHT, bg='#bada55',
+                                  scrollregion=(0,0,self.LEFT_WIDTH,self.LEFT_HEIGHT+50))
+        vbar = Scrollbar(frame, orient=VERTICAL)
+        vbar.pack(side=LEFT, fill=Y)
+        vbar.config(command=self.canvas_left.yview)
+        self.canvas_left.config(yscrollcommand=vbar.set)
+        self.canvas_left.pack(side=LEFT, expand=True)
+
         self.canvas_right = Canvas(frame, width=self.RIGHT_WIDTH, height=self.RIGHT_HEIGHT, bg='lightgreen')
         self.canvas_right.pack(side=RIGHT, expand=False)
+        b = Button(self.canvas_top, text='Vyber súbor', command=self.select_file)
+        b.place(x=10,y=10)
+        b = Button(self.canvas_top, text='Nastav Slovo', command=self.init_words)
+        b.place(x=150,y=10)
+        self.button_rules = []
+        self.start = None
+        self.goal = None
+        self.start_game()
 
+    def select_file(self):
+        filename = filedialog.askopenfilename(initialdir=".")
+        self.infile = open(filename, "r")
+        # self.infile = io.TextIOWrapper(self.infile, encoding='utf8', newline='')
+        self.start_game(filename)
+
+    def start_game(self,file_name='config.txt'):
+        self.canvas_left.delete('all')
+        self.canvas_right.delete('all')
+        if self.button_rules != []:
+            for but in self.button_rules:
+                but.destroy()
         self.characters = dict()
         self.rules = dict()
-        self.button_rules = []
 
         os.makedirs(PATH_PROCESSED, exist_ok=True)
         os.makedirs(PATH_RULES, exist_ok=True)
@@ -118,32 +147,37 @@ class Main:
         self.burger = [ImageTk.PhotoImage(Image.open(PATH_IMAGES + 'burger_top.png')),
                         ImageTk.PhotoImage(Image.open(PATH_IMAGES + 'burger_bottom.png'))]
         self.my_word = None
-        with open(file_name, 'r') as file:
-            row = file.readline().strip()
-
-            for i in glob.glob(row+'/*.png'):
-                absolute_path = i.replace('\\', '/')
-                file_name = absolute_path.split('/')[-1]
-                char = file_name.split('.')[0]
-                self.characters[char] = Character(absolute_path, char)
-
-            row = file.readline().strip()
-            while row != '':
-                rule = Rule(row)
-                rule.set_characters(self.characters)
-                self.rules[row] = rule
+        if os.path.isfile(file_name):
+            with open(file_name, 'r') as file:
                 row = file.readline().strip()
-            print(self.rules)
-        self.init_words('a,b,c,d','a,b,b,c,d,a')
+
+                for i in glob.glob(row+'/*.png'):
+                    absolute_path = i.replace('\\', '/')
+                    file_name = absolute_path.split('/')[-1]
+                    char = file_name.split('.')[0]
+                    self.characters[char] = Character(absolute_path, char)
+
+                row = file.readline().strip()
+                while row != '':
+                    try:
+                        rule = Rule(row)
+                        rule.set_characters(self.characters)
+                        self.rules[row] = rule
+                    except:
+                        print('Zly format pravdila: '+row)
+                    row = file.readline().strip()
+                print(self.rules)
+        #self.init_words('a,b,c,d')
         self.init_paint()
 
     def init_paint(self):
+        self.canvas_left.delete('all')
         self.button_rules = []
         x = 10
         y = 10
         for key in self.rules:
             rule = self.rules[key]
-            self.button_rules.append(Button(master=self.canvas_left, command=partial(self.apply_rule,rule.name), image=rule.image))
+            self.button_rules.append(Button(master=self.canvas_left, command=partial(self.apply_rule,rule.name), image=rule.image, state=ACTIVE))
             self.button_rules[-1].place(x=x,y=y)
             y += rule.height+10
         initY = y
@@ -171,25 +205,62 @@ class Main:
             pom = pom.next_node
         self.canvas_left.create_image(x, y, image=self.burger[1], anchor=NW)
 
-    def init_words(self, word1, word2):
+    def init_words(self, word1='a,b,c,d'):
+        self.canvas_right.delete('all')
+        for but in self.button_rules:
+            but.config(state=ACTIVE)
         characters = word1.split(',')
         self.start = Node(self.characters[characters[0]])
         pom = self.start
         self.my_word = Node(self.characters[characters[0]])
         pom2 = self.my_word
+        self.goal = Node(self.characters[characters[0]])
+        pom3 = self.goal
+
         for c in characters[1:]:
             pom.next_node = Node(self.characters[c])
             pom = pom.next_node
             pom2.next_node = Node(self.characters[c])
             pom2 = pom2.next_node
-        characters = word2.split(',')
-        self.goal = Node(self.characters[characters[0]])
-        pom = self.goal
-        for c in characters[1:]:
-            pom.next_node = Node(self.characters[c])
-            pom = pom.next_node
+            pom3.next_node = Node(self.characters[c])
+            pom3 = pom3.next_node
+        self.generate_goal_word()
 
-    def apply_rule(self, key):
+    def apply(self,node,rule_key):
+        while node is not None:
+            rule = self.rules[rule_key]
+            if node.data.char_name == rule.search_characters[0].char_name:
+                temp = node
+                first_node = node
+                last_node = None
+                is_equal = True
+                for i in rule.search_characters:
+                    is_equal = is_equal and (temp.data.char_name == i.char_name)
+                    temp = temp.next_node
+                    last_node = temp
+                if is_equal:
+                    node.data = self.characters[rule.replace_characters[0].char_name]
+                    for i in rule.replace_characters[1:]:
+                        node.next_node = Node(self.characters[i.char_name])
+                        node = node.next_node
+                    node.next_node = last_node
+                    print(rule.name)
+                    return True
+            node = node.next_node
+        return False
+
+    def generate_goal_word(self):
+        p = list(self.rules.keys())
+        for i in range(random.randrange(2,4)):
+            pom = self.goal
+            random.shuffle(p)
+            for r in p:
+                if self.apply(pom,r):
+                    break
+        self.init_paint()
+
+
+    def apply_rule(self, key, is_init=False):
         pom = self.my_word
         rule = self.rules[key]
         while pom is not None:
@@ -216,12 +287,15 @@ class Main:
             print(pom.data.char_name,end=' ')
             pom = pom.next_node
         print()
-        self.print_next_step()
-        self.check_if_end()
+        if not is_init:
+            self.print_next_step()
+            self.check_if_end()
 
     def check_if_end(self):
         if self.my_word.equals(self.goal):
-            print('VYHRAL')
+            for but in self.button_rules:
+                but.config(state=DISABLED)
+            messagebox.showinfo("Výsledok", "Našli ste správny burger")
 
     def print_next_step(self):
         x = 10

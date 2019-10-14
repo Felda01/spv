@@ -1,0 +1,4 @@
+./images/characters
+f -> g,h,i
+g -> g,h
+h -> f
