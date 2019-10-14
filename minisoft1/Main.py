@@ -60,11 +60,13 @@ class Rule:
         self.height = max(len(self.search), len(self.replace))*Character.HEIGHT
         self.image = None
 
-    def set_characters(self, characters):
+    def set_characters(self, characters, alphabet):
         for i in self.search:
             self.search_characters.append(characters[i])
+            alphabet.add(characters[i])
         for i in self.replace:
             self.replace_characters.append(characters[i])
+            alphabet.add(characters[i])
         self.combine_images()
 
     def combine_images(self):
@@ -104,9 +106,10 @@ class Main:
         self.window = Tk()
         self.window.title('Burgraren')
         frame = Frame(self.window).pack()
+        # TOP
         self.canvas_top = Canvas(frame, width=self.TOP_WIDTH, height=self.TOP_HEIGHT, bg='green')
         self.canvas_top.pack(side=TOP, expand=False)
-
+        # LEFT
         self.canvas_left = Canvas(frame, width=self.LEFT_WIDTH, height=self.LEFT_HEIGHT, bg='#bada55',
                                   scrollregion=(0,0,self.LEFT_WIDTH,self.LEFT_HEIGHT+50))
         vbar = Scrollbar(frame, orient=VERTICAL)
@@ -114,13 +117,15 @@ class Main:
         vbar.config(command=self.canvas_left.yview)
         self.canvas_left.config(yscrollcommand=vbar.set)
         self.canvas_left.pack(side=LEFT, expand=True)
-
+        # RIGHT
         self.canvas_right = Canvas(frame, width=self.RIGHT_WIDTH, height=self.RIGHT_HEIGHT, bg='lightgreen')
         self.canvas_right.pack(side=RIGHT, expand=False)
         b = Button(self.canvas_top, text='Vyber súbor', command=self.select_file)
         b.place(x=10,y=10)
         b = Button(self.canvas_top, text='Nastav Slovo', command=self.init_words)
         b.place(x=150,y=10)
+        b = Button(self.canvas_top, text='Začni znova', command=self.reset)
+        b.place(x=300, y=10)
         self.button_rules = []
         self.start = None
         self.goal = None
@@ -129,10 +134,11 @@ class Main:
     def select_file(self):
         filename = filedialog.askopenfilename(initialdir=".")
         self.infile = open(filename, "r")
-        # self.infile = io.TextIOWrapper(self.infile, encoding='utf8', newline='')
         self.start_game(filename)
 
     def start_game(self,file_name='config.txt'):
+        self.steps = []
+        self.alphabet = set()
         self.canvas_left.delete('all')
         self.canvas_right.delete('all')
         if self.button_rules != []:
@@ -161,18 +167,18 @@ class Main:
                 while row != '':
                     try:
                         rule = Rule(row)
-                        rule.set_characters(self.characters)
+                        rule.set_characters(self.characters, self.alphabet)
                         self.rules[row] = rule
                     except:
                         print('Zly format pravdila: '+row)
                     row = file.readline().strip()
                 print(self.rules)
         #self.init_words('a,b,c,d')
+        print(self.alphabet)
         self.init_paint()
 
     def init_paint(self):
         self.canvas_left.delete('all')
-        self.button_rules = []
         x = 10
         y = 10
         for key in self.rules:
@@ -205,7 +211,22 @@ class Main:
             pom = pom.next_node
         self.canvas_left.create_image(x, y, image=self.burger[1], anchor=NW)
 
-    def init_words(self, word1='a,b,c,d'):
+        self.canvas_top.delete('all')
+        x = self.TOP_WIDTH - Character.WIDTH-5
+
+        for character in self.alphabet:
+            self.canvas_top.create_image(x,5,image=character.image,anchor=NW)
+            x -= Character.WIDTH-5
+
+    def init_words(self, word1=None):
+        if word1 is None:
+            word1 = ''
+            for i in range(random.randrange(3,6)):
+                char = random.choice(list(self.alphabet))
+                if i == 0:
+                    word1 += char.char_name
+                else:
+                    word1 += ','+char.char_name
         self.canvas_right.delete('all')
         for but in self.button_rules:
             but.config(state=ACTIVE)
@@ -259,29 +280,22 @@ class Main:
                     break
         self.init_paint()
 
+    def reset(self):
+        pom = self.start
+        first_node = Node(pom.data)
+        temp = first_node
+        while pom.next_node is not None:
+            pom = pom.next_node
+            temp.next_node = Node(pom.data)
+            temp = temp.next_node
+        self.my_word = first_node
+        self.print_next_step()
+
 
     def apply_rule(self, key, is_init=False):
         pom = self.my_word
-        rule = self.rules[key]
-        while pom is not None:
-            if pom.data.char_name == rule.search_characters[0].char_name:
-                temp = pom
-                first_node = pom
-                last_node = None
-                is_equal = True
-                for i in rule.search_characters:
-                    is_equal = is_equal and (temp.data.char_name == i.char_name)
-                    temp = temp.next_node
-                    last_node = temp
-                if is_equal:
-                    print('tu')
-                    pom.data = self.characters[rule.replace_characters[0].char_name]
-                    for i in rule.replace_characters[1:]:
-                        pom.next_node = Node(self.characters[i.char_name])
-                        pom = pom.next_node
-                    pom.next_node = last_node
-                    break
-            pom = pom.next_node
+        is_applied = self.apply(pom, key)
+        self.steps.append(key)
         pom = self.my_word
         while pom is not None:
             print(pom.data.char_name,end=' ')
