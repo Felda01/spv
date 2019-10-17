@@ -130,13 +130,10 @@ class Main:
         b = Button(self.canvas_top, text='Začni znova', command=self.reset)
         b.place(x=300, y=10)
         self.button_rules = []
-        self.start = None
-        self.goal = None
 
         self.characters = dict()
         self.rules = dict()
         self.steps = []
-        self.alphabet = set()
         self.burger = []
         self.my_word = None
 
@@ -155,6 +152,9 @@ class Main:
                 but.place_forget()
         self.characters = dict()
         self.rules = dict()
+        self.alphabet = set()
+        self.start = None
+        self.goal = None
 
         os.makedirs(PATH_PROCESSED, exist_ok=True)
         os.makedirs(PATH_RULES, exist_ok=True)
@@ -181,14 +181,15 @@ class Main:
                     except:
                         print('Zly format pravdila: ' + row)
                     row = file.readline().strip()
-                print(self.rules)
-        # self.init_words('a,b,c,d')
-        print(self.alphabet)
         self.init_paint()
 
     def paint_rules(self):
         x = 10
         y = 10
+        if self.button_rules:
+            for but in self.button_rules:
+                but.place_forget()
+        self.button_rules = []
         for key in self.rules:
             rule = self.rules[key]
             self.button_rules.append(
@@ -206,7 +207,6 @@ class Main:
             self.canvas_left.create_image(x, y, image=pom.data.image, anchor=NW)
             y += Character.HEIGHT
             pom = pom.next_node
-        print(y)
         self.canvas_left.create_image(x, y, image=self.burger[1], anchor=NW)
 
     def paint_goal_word(self,x,y):
@@ -222,7 +222,6 @@ class Main:
     def paint_alphabet(self):
         self.canvas_top.delete('all')
         x = self.TOP_WIDTH - Character.WIDTH - 5
-
         for character in self.alphabet:
             self.canvas_top.create_image(x, 5, image=character.image, anchor=NW)
             x -= Character.WIDTH - 5
@@ -271,6 +270,7 @@ class Main:
             pom3 = pom3.next_node
         self.generate_goal_word()
         self.init_paint()
+        self.print_next_step()
 
     def apply(self, node, rule_key):
         while node is not None:
@@ -289,7 +289,6 @@ class Main:
                         node.next_node = Node(self.characters[i.char_name])
                         node = node.next_node
                     node.next_node = last_node
-                    print(rule.name)
                     return True
             node = node.next_node
         return False
@@ -311,6 +310,8 @@ class Main:
             pom = pom.next_node
             temp.next_node = Node(pom.data)
             temp = temp.next_node
+        for but in self.button_rules:
+            but.config(state=ACTIVE)
         self.my_word = first_node
         self.print_next_step()
 
@@ -319,10 +320,10 @@ class Main:
         is_applied = self.apply(pom, key)
         self.steps.append(key)
         pom = self.my_word
-        while pom is not None:
-            print(pom.data.char_name, end=' ')
-            pom = pom.next_node
-        print()
+        # while pom is not None:
+        #     print(pom.data.char_name, end=' ')
+        #     pom = pom.next_node
+        # print()
         if not is_init:
             self.print_next_step()
             self.check_if_end()
