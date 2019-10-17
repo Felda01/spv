@@ -8,6 +8,7 @@ from PIL import ImageTk
 import os
 from functools import partial
 import random
+import re
 
 PATH_IMAGES = './images/'
 PATH_RULES = PATH_IMAGES + 'rules/'
@@ -32,7 +33,6 @@ class Node:
             node = node.next_node
 
 
-
 class Character:
     HEIGHT = 40
     WIDTH = 130
@@ -46,18 +46,20 @@ class Character:
         image.save(PATH_PROCESSED + self.char_name + '.png', 'PNG')
         self.image = ImageTk.PhotoImage(Image.open(PATH_PROCESSED + self.char_name + '.png'))
 
+
 class Rule:
     RULE_WIDTH = Character.WIDTH * 2 + Character.ARROW
+
     def __init__(self, line):
         self.name = line.strip()
-        array = self.name.split(' -> ')
-        if len(array) != 2:
+        if not re.match(r"[^/\\?%*:|\"<>]+ -> [^/\\?%*:|\"<>]*", self.name):
             raise ValueError
+        array = self.name.split(' -> ')
         self.search = array[0].split(',')
         self.replace = array[1].split(',')
         self.replace_characters = []
         self.search_characters = []
-        self.height = max(len(self.search), len(self.replace))*Character.HEIGHT
+        self.height = max(len(self.search), len(self.replace)) * Character.HEIGHT
         self.image = None
 
     def set_characters(self, characters, alphabet):
@@ -83,7 +85,7 @@ class Rule:
 
         y_offset = (self.height - len(self.replace_characters) * Character.HEIGHT) // 2
         for im in image2:
-            new_image.paste(im, (Character.WIDTH+Character.ARROW, y_offset))
+            new_image.paste(im, (Character.WIDTH + Character.ARROW, y_offset))
             y_offset += Character.HEIGHT
         file_name = self.name.replace(',', '_').replace(' -> ', 'A')
 
@@ -97,9 +99,9 @@ class Main:
     WINDOW_HEIGHT = 750
     TOP_WIDTH = WINDOW_WIDTH
     TOP_HEIGHT = 50
-    LEFT_WIDTH = Rule.RULE_WIDTH+20
+    LEFT_WIDTH = Rule.RULE_WIDTH + 20
     LEFT_HEIGHT = WINDOW_HEIGHT - TOP_HEIGHT
-    RIGHT_WIDTH = TOP_WIDTH - LEFT_WIDTH-25
+    RIGHT_WIDTH = TOP_WIDTH - LEFT_WIDTH - 25
     RIGHT_HEIGHT = LEFT_HEIGHT
 
     def __init__(self):
@@ -111,24 +113,33 @@ class Main:
         self.canvas_top.pack(side=TOP, expand=False)
         # LEFT
         self.canvas_left = Canvas(frame, width=self.LEFT_WIDTH, height=self.LEFT_HEIGHT, bg='#bada55',
-                                  scrollregion=(0,0,self.LEFT_WIDTH,self.LEFT_HEIGHT+50))
+                                  scrollregion=(0, 0, self.LEFT_WIDTH, self.LEFT_HEIGHT + 50))
         vbar = Scrollbar(frame, orient=VERTICAL)
         vbar.pack(side=LEFT, fill=Y)
         vbar.config(command=self.canvas_left.yview)
         self.canvas_left.config(yscrollcommand=vbar.set)
         self.canvas_left.pack(side=LEFT, expand=True)
+
         # RIGHT
         self.canvas_right = Canvas(frame, width=self.RIGHT_WIDTH, height=self.RIGHT_HEIGHT, bg='lightgreen')
         self.canvas_right.pack(side=RIGHT, expand=False)
         b = Button(self.canvas_top, text='Vyber súbor', command=self.select_file)
-        b.place(x=10,y=10)
+        b.place(x=10, y=10)
         b = Button(self.canvas_top, text='Nastav Slovo', command=self.init_words)
-        b.place(x=150,y=10)
+        b.place(x=150, y=10)
         b = Button(self.canvas_top, text='Začni znova', command=self.reset)
         b.place(x=300, y=10)
         self.button_rules = []
         self.start = None
         self.goal = None
+
+        self.characters = dict()
+        self.rules = dict()
+        self.steps = []
+        self.alphabet = set()
+        self.burger = []
+        self.my_word = None
+
         self.start_game()
 
     def select_file(self):
@@ -136,12 +147,10 @@ class Main:
         self.infile = open(filename, "r")
         self.start_game(filename)
 
-    def start_game(self,file_name='config.txt'):
-        self.steps = []
-        self.alphabet = set()
+    def start_game(self, file_name='config.txt'):
         self.canvas_left.delete('all')
         self.canvas_right.delete('all')
-        if self.button_rules != []:
+        if self.button_rules:
             for but in self.button_rules:
                 but.place_forget()
         self.characters = dict()
@@ -151,13 +160,13 @@ class Main:
         os.makedirs(PATH_RULES, exist_ok=True)
 
         self.burger = [ImageTk.PhotoImage(Image.open(PATH_IMAGES + 'burger_top.png')),
-                        ImageTk.PhotoImage(Image.open(PATH_IMAGES + 'burger_bottom.png'))]
-        self.my_word = None
+                       ImageTk.PhotoImage(Image.open(PATH_IMAGES + 'burger_bottom.png'))]
+
         if os.path.isfile(file_name):
             with open(file_name, 'r') as file:
                 row = file.readline().strip()
 
-                for i in glob.glob(row+'/*.png'):
+                for i in glob.glob(row + '/*.png'):
                     absolute_path = i.replace('\\', '/')
                     file_name = absolute_path.split('/')[-1]
                     char = file_name.split('.')[0]
@@ -170,10 +179,10 @@ class Main:
                         rule.set_characters(self.characters, self.alphabet)
                         self.rules[row] = rule
                     except:
-                        print('Zly format pravdila: '+row)
+                        print('Zly format pravdila: ' + row)
                     row = file.readline().strip()
                 print(self.rules)
-        #self.init_words('a,b,c,d')
+        # self.init_words('a,b,c,d')
         print(self.alphabet)
         self.init_paint()
 
@@ -236,12 +245,12 @@ class Main:
     def init_words(self, word1=None):
         if word1 is None:
             word1 = ''
-            for i in range(random.randrange(3,6)):
+            for i in range(random.randrange(3, 6)):
                 char = random.choice(list(self.alphabet))
                 if i == 0:
                     word1 += char.char_name
                 else:
-                    word1 += ','+char.char_name
+                    word1 += ',' + char.char_name
         self.canvas_right.delete('all')
         for but in self.button_rules:
             but.config(state=ACTIVE)
@@ -263,12 +272,11 @@ class Main:
         self.generate_goal_word()
         self.init_paint()
 
-    def apply(self,node,rule_key):
+    def apply(self, node, rule_key):
         while node is not None:
             rule = self.rules[rule_key]
             if node.data.char_name == rule.search_characters[0].char_name:
                 temp = node
-                first_node = node
                 last_node = None
                 is_equal = True
                 for i in rule.search_characters:
@@ -288,11 +296,11 @@ class Main:
 
     def generate_goal_word(self):
         p = list(self.rules.keys())
-        for i in range(random.randrange(2,4)):
+        for i in range(random.randrange(2, 4)):
             pom = self.goal
             random.shuffle(p)
             for r in p:
-                if self.apply(pom,r):
+                if self.apply(pom, r):
                     break
 
     def reset(self):
@@ -306,14 +314,13 @@ class Main:
         self.my_word = first_node
         self.print_next_step()
 
-
     def apply_rule(self, key, is_init=False):
         pom = self.my_word
         is_applied = self.apply(pom, key)
         self.steps.append(key)
         pom = self.my_word
         while pom is not None:
-            print(pom.data.char_name,end=' ')
+            print(pom.data.char_name, end=' ')
             pom = pom.next_node
         print()
         if not is_init:
@@ -338,7 +345,6 @@ class Main:
             y += Character.HEIGHT
             pom = pom.next_node
         self.canvas_right.create_image(x, y, image=self.burger[1], anchor=NW)
-
 
 
 if __name__ == '__main__':
