@@ -143,7 +143,7 @@ class Main:
         self.canvas_right.delete('all')
         if self.button_rules != []:
             for but in self.button_rules:
-                but.destroy()
+                but.place_forget()
         self.characters = dict()
         self.rules = dict()
 
@@ -177,21 +177,22 @@ class Main:
         print(self.alphabet)
         self.init_paint()
 
-    def init_paint(self):
-        self.canvas_left.delete('all')
+    def paint_rules(self):
         x = 10
         y = 10
         for key in self.rules:
             rule = self.rules[key]
-            self.button_rules.append(Button(master=self.canvas_left, command=partial(self.apply_rule,rule.name), image=rule.image, state=ACTIVE))
-            self.button_rules[-1].place(x=x,y=y)
-            y += rule.height+10
-        initY = y
-        pom = self.start
-        x = 10
+            self.button_rules.append(
+                Button(master=self.canvas_left, command=partial(self.apply_rule, rule.name), image=rule.image,
+                       state=ACTIVE))
+            self.button_rules[-1].place(x=x, y=y)
+            y += rule.height + 10
+        return y
 
+    def paint_start_word(self,x,y):
         self.canvas_left.create_image(x, y, image=self.burger[0], anchor=NW)
         y += Character.HEIGHT
+        pom = self.start
         while pom is not None:
             self.canvas_left.create_image(x, y, image=pom.data.image, anchor=NW)
             y += Character.HEIGHT
@@ -199,10 +200,8 @@ class Main:
         print(y)
         self.canvas_left.create_image(x, y, image=self.burger[1], anchor=NW)
 
-        y = initY
+    def paint_goal_word(self,x,y):
         pom = self.goal
-        x = +Character.WIDTH
-
         self.canvas_left.create_image(x, y, image=self.burger[0], anchor=NW)
         y += Character.HEIGHT
         while pom is not None:
@@ -211,12 +210,28 @@ class Main:
             pom = pom.next_node
         self.canvas_left.create_image(x, y, image=self.burger[1], anchor=NW)
 
+    def paint_alphabet(self):
         self.canvas_top.delete('all')
-        x = self.TOP_WIDTH - Character.WIDTH-5
+        x = self.TOP_WIDTH - Character.WIDTH - 5
 
         for character in self.alphabet:
-            self.canvas_top.create_image(x,5,image=character.image,anchor=NW)
-            x -= Character.WIDTH-5
+            self.canvas_top.create_image(x, 5, image=character.image, anchor=NW)
+            x -= Character.WIDTH - 5
+
+    def init_paint(self):
+        self.canvas_left.delete('all')
+        y = self.paint_rules()
+        initY = y
+        x = 10
+
+        self.paint_start_word(x,y)
+
+        y = initY
+        x += Character.WIDTH
+
+        self.paint_goal_word(x,y)
+
+
 
     def init_words(self, word1=None):
         if word1 is None:
@@ -246,6 +261,7 @@ class Main:
             pom3.next_node = Node(self.characters[c])
             pom3 = pom3.next_node
         self.generate_goal_word()
+        self.init_paint()
 
     def apply(self,node,rule_key):
         while node is not None:
@@ -278,7 +294,6 @@ class Main:
             for r in p:
                 if self.apply(pom,r):
                     break
-        self.init_paint()
 
     def reset(self):
         pom = self.start
