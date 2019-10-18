@@ -1,4 +1,10 @@
 #Burgráreň
+##Spustenie
+* Python 3.7
+  * PIL
+* Otvorit subor _Main.py_ v Python IDLE alebo PyCharm
+* Spustit subor
+
 ##Obmedzenia
 
 **Obrazky** 
