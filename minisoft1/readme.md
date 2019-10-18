@@ -4,6 +4,7 @@
   * PIL
 * Otvorit subor _Main.py_ v Python IDLE alebo PyCharm
 * Spustit subor
+* Rozlisenie obrazovky: minimalne 1220 x 750
 
 ##Obmedzenia
 
