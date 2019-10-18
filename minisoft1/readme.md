@@ -16,3 +16,7 @@
 		 
 **Vstupne slovo** 
 * rozsah 1 - 5 znakov
+
+###TODO
+* vytvorenie vlastneho slova
+  * aktualne sa generuje nahodne
