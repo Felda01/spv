@@ -32,6 +32,18 @@ class Node:
             pom = pom.next_node
             node = node.next_node
 
+    def copy(self):
+        new_root = Node(self.data)
+
+        new_temp = new_root
+
+        temp = self
+        while temp.next_node is not None:
+            temp = temp.next_node
+            new_temp.next_node = Node(temp.data)
+            new_temp = new_temp.next_node
+        return new_root
+
 
 class Character:
     HEIGHT = 40
@@ -51,12 +63,14 @@ class Rule:
     RULE_WIDTH = Character.WIDTH * 2 + Character.ARROW
 
     def __init__(self, line):
-        self.name = line.strip()
+        self.name = line
         if not re.match(r"[^/\\?%*:|\"<>]+ -> [^/\\?%*:|\"<>]*", self.name):
             raise ValueError
-        array = self.name.split(' -> ')
+        array = self.name.strip().split(' -> ')
         self.search = array[0].split(',')
         self.replace = array[1].split(',')
+        if len(self.search) > 3 or len(self.replace) > 3:
+            raise AttributeError
         self.replace_characters = []
         self.search_characters = []
         self.height = max(len(self.search), len(self.replace)) * Character.HEIGHT
@@ -74,7 +88,7 @@ class Rule:
     def combine_images(self):
         image1 = map(Image.open, [PATH_PROCESSED + i.char_name + '.png' for i in self.search_characters])
         image2 = map(Image.open, [PATH_PROCESSED + i.char_name + '.png' for i in self.replace_characters])
-        new_image = Image.new('RGBA', (Character.WIDTH * 2 + Character.ARROW, self.height), 'white')
+        new_image = Image.new('RGBA', (Character.WIDTH * 2 + Character.ARROW, self.height), (0, 0, 0, 0))
 
         y_offset = (self.height - len(self.search_characters) * Character.HEIGHT) // 2
         for im in image1:
@@ -95,40 +109,42 @@ class Rule:
 
 
 class Main:
-    WINDOW_WIDTH = 1000
+    WINDOW_WIDTH = 1220
     WINDOW_HEIGHT = 750
     TOP_WIDTH = WINDOW_WIDTH
     TOP_HEIGHT = 50
-    LEFT_WIDTH = Rule.RULE_WIDTH + 20
-    LEFT_HEIGHT = WINDOW_HEIGHT - TOP_HEIGHT
-    RIGHT_WIDTH = TOP_WIDTH - LEFT_WIDTH - 25
-    RIGHT_HEIGHT = LEFT_HEIGHT
+    LEFT_WIDTH = WINDOW_WIDTH
+    LEFT_HEIGHT = Character.HEIGHT*4-18
+    RIGHT_WIDTH = WINDOW_WIDTH
+    RIGHT_HEIGHT = WINDOW_HEIGHT-LEFT_HEIGHT-TOP_HEIGHT
 
     def __init__(self):
         self.window = Tk()
         self.window.title('Burgraren')
-        frame = Frame(self.window).pack()
+        self.window.resizable(False, False)
+        frame = Frame(self.window,bg='black').pack()
         # TOP
         self.canvas_top = Canvas(frame, width=self.TOP_WIDTH, height=self.TOP_HEIGHT, bg='green')
         self.canvas_top.pack(side=TOP, expand=False)
         # LEFT
-        self.canvas_left = Canvas(frame, width=self.LEFT_WIDTH, height=self.LEFT_HEIGHT, bg='#bada55',
-                                  scrollregion=(0, 0, self.LEFT_WIDTH, self.LEFT_HEIGHT + 50))
-        vbar = Scrollbar(frame, orient=VERTICAL)
-        vbar.pack(side=LEFT, fill=Y)
-        vbar.config(command=self.canvas_left.yview)
-        self.canvas_left.config(yscrollcommand=vbar.set)
-        self.canvas_left.pack(side=LEFT, expand=True)
+        self.canvas_rules = Canvas(frame, width=self.LEFT_WIDTH, height=self.LEFT_HEIGHT, bg='#bada55',
+                                   scrollregion=(0, 0, self.LEFT_WIDTH, self.LEFT_HEIGHT))
+        self.canvas_rules.pack(side=TOP, expand=False)
 
         # RIGHT
         self.canvas_right = Canvas(frame, width=self.RIGHT_WIDTH, height=self.RIGHT_HEIGHT, bg='lightgreen')
-        self.canvas_right.pack(side=RIGHT, expand=False)
+        self.canvas_right.pack(side=TOP, expand=False)
         b = Button(self.canvas_top, text='Vyber súbor', command=self.select_file)
         b.place(x=10, y=10)
         b = Button(self.canvas_top, text='Nastav Slovo', command=self.init_words)
-        b.place(x=150, y=10)
+        b.place(x=100, y=10)
         b = Button(self.canvas_top, text='Začni znova', command=self.reset)
-        b.place(x=300, y=10)
+        b.place(x=200, y=10)
+
+        self.show_steps = BooleanVar()
+        self.checkButton = Checkbutton(self.canvas_top, text="Zobrazit postup", variable=self.show_steps, height=1, width=11,
+                                       command=self.print_next_step)
+        self.checkButton.place(x=300, y=10)
         self.button_rules = []
 
         self.characters = dict()
@@ -141,11 +157,12 @@ class Main:
 
     def select_file(self):
         filename = filedialog.askopenfilename(initialdir=".")
-        self.infile = open(filename, "r")
-        self.start_game(filename)
+        if filename:
+            self.infile = open(filename, "r")
+            self.start_game(filename)
 
     def start_game(self, file_name='config.txt'):
-        self.canvas_left.delete('all')
+        self.canvas_rules.delete('all')
         self.canvas_right.delete('all')
         if self.button_rules:
             for but in self.button_rules:
@@ -176,10 +193,17 @@ class Main:
                 while row != '':
                     try:
                         rule = Rule(row)
+                        if len(self.rules) == 4:
+                            messagebox.showinfo("Upozornenie", "Vstupný súbor môže obsahovať maximálne 4 pravidlá.\n\nOstatné nebudú použité!")
+                            break
                         rule.set_characters(self.characters, self.alphabet)
                         self.rules[row] = rule
-                    except:
+                    except ValueError:
                         print('Zly format pravdila: ' + row)
+                    except AttributeError:
+                        print('Pravidlo má priveľa znakov: ' + row)
+                    except:
+                        pass
                     row = file.readline().strip()
         self.init_paint()
 
@@ -193,31 +217,35 @@ class Main:
         for key in self.rules:
             rule = self.rules[key]
             self.button_rules.append(
-                Button(master=self.canvas_left, command=partial(self.apply_rule, rule.name), image=rule.image,
-                       state=ACTIVE))
+                Button(master=self.canvas_rules, command=partial(self.apply_rule, rule.name), image=rule.image,
+                       state=ACTIVE,height=Character.HEIGHT*3))
             self.button_rules[-1].place(x=x, y=y)
-            y += rule.height + 10
+            x += Rule.RULE_WIDTH + 10
         return y
 
-    def paint_start_word(self,x,y):
-        self.canvas_left.create_image(x, y, image=self.burger[0], anchor=NW)
+    def paint_start_word(self):
+        x = 10
+        y = 10
+        self.canvas_right.create_image(x, y, image=self.burger[0], anchor=NW)
         y += Character.HEIGHT
         pom = self.start
         while pom is not None:
-            self.canvas_left.create_image(x, y, image=pom.data.image, anchor=NW)
+            self.canvas_right.create_image(x, y, image=pom.data.image, anchor=NW)
             y += Character.HEIGHT
             pom = pom.next_node
-        self.canvas_left.create_image(x, y, image=self.burger[1], anchor=NW)
+        self.canvas_right.create_image(x, y, image=self.burger[1], anchor=NW)
 
-    def paint_goal_word(self,x,y):
+    def paint_goal_word(self):
+        x = self.WINDOW_WIDTH-Character.WIDTH-10
+        y = 10
         pom = self.goal
-        self.canvas_left.create_image(x, y, image=self.burger[0], anchor=NW)
+        self.canvas_right.create_image(x, y, image=self.burger[0], anchor=NW)
         y += Character.HEIGHT
         while pom is not None:
-            self.canvas_left.create_image(x, y, image=pom.data.image, anchor=NW)
+            self.canvas_right.create_image(x, y, image=pom.data.image, anchor=NW)
             y += Character.HEIGHT
             pom = pom.next_node
-        self.canvas_left.create_image(x, y, image=self.burger[1], anchor=NW)
+        self.canvas_right.create_image(x, y, image=self.burger[1], anchor=NW)
 
     def paint_alphabet(self):
         self.canvas_top.delete('all')
@@ -227,21 +255,23 @@ class Main:
             x -= Character.WIDTH - 5
 
     def init_paint(self):
-        self.canvas_left.delete('all')
+        self.canvas_rules.delete('all')
         y = self.paint_rules()
+        self.paint_alphabet()
         initY = y
         x = 10
 
-        self.paint_start_word(x,y)
+        self.paint_start_word()
 
         y = initY
         x += Character.WIDTH
 
-        self.paint_goal_word(x,y)
+        self.paint_goal_word()
 
 
 
     def init_words(self, word1=None):
+        self.steps = []
         if word1 is None:
             word1 = ''
             for i in range(random.randrange(3, 6)):
@@ -280,7 +310,9 @@ class Main:
                 last_node = None
                 is_equal = True
                 for i in rule.search_characters:
-                    is_equal = is_equal and (temp.data.char_name == i.char_name)
+                    is_equal = is_equal and temp is not None and (temp.data.char_name == i.char_name)
+                    if temp is None:
+                        break
                     temp = temp.next_node
                     last_node = temp
                 if is_equal:
@@ -303,6 +335,7 @@ class Main:
                     break
 
     def reset(self):
+        self.steps = []
         pom = self.start
         first_node = Node(pom.data)
         temp = first_node
@@ -316,6 +349,13 @@ class Main:
         self.print_next_step()
 
     def apply_rule(self, key, is_init=False):
+        if self.my_word is None:
+            return
+        if len(self.steps) > 6:
+            msg = messagebox.askquestion("Skúsiť znova", "Dané riešenie sa dá spraviť aj na menej krokov.\nChcete začať znova?")
+            if msg == 'yes':
+                self.reset()
+            return
         pom = self.my_word
         is_applied = self.apply(pom, key)
         self.steps.append(key)
@@ -335,17 +375,38 @@ class Main:
             messagebox.showinfo("Výsledok", "Našli ste správny burger")
 
     def print_next_step(self):
-        x = 10
+        x = Character.WIDTH+10
         y = 10
-        pom = self.my_word
         self.canvas_right.delete('all')
-        self.canvas_right.create_image(x, y, image=self.burger[0], anchor=NW)
-        y += Character.HEIGHT
-        while pom is not None:
-            self.canvas_right.create_image(x, y, image=pom.data.image, anchor=NW)
+        self.paint_start_word()
+        self.paint_goal_word()
+        if self.show_steps.get():
+            start = self.start.copy()
+            for i in range(len(self.steps)):
+                self.apply(start, self.steps[i])
+                pom = start
+                self.canvas_right.create_image(x, y, image=self.burger[0], anchor=NW)
+                y += Character.HEIGHT
+                while pom is not None:
+                    self.canvas_right.create_image(x, y, image=pom.data.image, anchor=NW)
+                    y += Character.HEIGHT
+                    pom = pom.next_node
+                self.canvas_right.create_image(x, y, image=self.burger[1], anchor=NW)
+                x += Character.WIDTH+5
+                y = 10
+
+
+        else:
+            if not self.steps:
+                return
+            pom = self.my_word
+            self.canvas_right.create_image(x, y, image=self.burger[0], anchor=NW)
             y += Character.HEIGHT
-            pom = pom.next_node
-        self.canvas_right.create_image(x, y, image=self.burger[1], anchor=NW)
+            while pom is not None:
+                self.canvas_right.create_image(x, y, image=pom.data.image, anchor=NW)
+                y += Character.HEIGHT
+                pom = pom.next_node
+            self.canvas_right.create_image(x, y, image=self.burger[1], anchor=NW)
 
 
 if __name__ == '__main__':

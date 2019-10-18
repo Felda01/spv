@@ -1,4 +1,4 @@
 ./images/characters
-f -> g,h,i
-g -> g,h
-h -> f
+m -> r,r
+r -> m,d
+s -> r,d
