@@ -2,4 +2,4 @@
 a -> a,b
 b -> a,c,d
 d -> d,a
-a,b -> d
+a,b -> a

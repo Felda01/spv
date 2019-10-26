@@ -64,7 +64,7 @@ class Rule:
 
     def __init__(self, line):
         self.name = line
-        if not re.match(r"[^/\\?%*:|\"<>]+ -> [^/\\?%*:|\"<>]*", self.name):
+        if not re.match(r"([^/\\?%*:|\"<>]+ -> [^/\\?%*:|\"<>]+)|([^/\\?%*:|\"<>]+ -> %)", self.name):
             raise ValueError
         array = self.name.strip().split(' -> ')
         self.search = array[0].split(',')
@@ -122,21 +122,22 @@ class Main:
         self.window = Tk()
         self.window.title('Burgraren')
         self.window.resizable(False, False)
-        frame = Frame(self.window,bg='black').pack()
+        self.frame = Frame(self.window,bg='black').pack()
         # TOP
-        self.canvas_top = Canvas(frame, width=self.TOP_WIDTH, height=self.TOP_HEIGHT, bg='green')
+        self.canvas_top = Canvas(self.frame, width=self.TOP_WIDTH, height=self.TOP_HEIGHT, bg='green')
         self.canvas_top.pack(side=TOP, expand=False)
         # LEFT
-        self.canvas_rules = Canvas(frame, width=self.LEFT_WIDTH, height=self.LEFT_HEIGHT, bg='#bada55',
+        self.canvas_rules = Canvas(self.frame, width=self.LEFT_WIDTH, height=self.LEFT_HEIGHT, bg='#bada55',
                                    scrollregion=(0, 0, self.LEFT_WIDTH, self.LEFT_HEIGHT))
         self.canvas_rules.pack(side=TOP, expand=False)
 
         # RIGHT
-        self.canvas_right = Canvas(frame, width=self.RIGHT_WIDTH, height=self.RIGHT_HEIGHT, bg='lightgreen')
+        self.background = ImageTk.PhotoImage(Image.open(PATH_IMAGES+'board.png'))
+        self.canvas_right = Canvas(self.frame, width=self.RIGHT_WIDTH, height=self.RIGHT_HEIGHT)
         self.canvas_right.pack(side=TOP, expand=False)
         b = Button(self.canvas_top, text='Vyber súbor', command=self.select_file)
         b.place(x=10, y=10)
-        b = Button(self.canvas_top, text='Nastav Slovo', command=self.init_words)
+        b = Button(self.canvas_top, text='Nastav Slovo', command=self.generate_start_word)
         b.place(x=100, y=10)
         b = Button(self.canvas_top, text='Začni znova', command=self.reset)
         b.place(x=200, y=10)
@@ -172,6 +173,7 @@ class Main:
         self.alphabet = set()
         self.start = None
         self.goal = None
+        self.steps = []
 
         os.makedirs(PATH_PROCESSED, exist_ok=True)
         os.makedirs(PATH_RULES, exist_ok=True)
@@ -207,6 +209,63 @@ class Main:
                     row = file.readline().strip()
         self.init_paint()
 
+    def generate_start_word(self):
+        self.temp = []
+        self.remove_buttons = []
+
+        def paint_burger():
+            self.canvas.delete('all')
+            x = 10
+            y = 10
+            self.canvas.create_image(x, y, image=self.burger[0], anchor=NW)
+            y += Character.HEIGHT
+            for i in range(len(self.remove_buttons)):
+                if self.remove_buttons[i][1]:
+                    self.canvas.create_image(x,y,image=self.characters[self.temp[i][0]].image, anchor=NW)
+                    self.remove_buttons[i][0].place(x=x+Character.WIDTH,y=y+10)
+                    y += Character.HEIGHT
+            self.canvas.create_image(x, y, image=self.burger[1], anchor=NW)
+
+
+        def add_image(name):
+            self.temp.append([name,True])
+            print(len(self.temp)-1)
+            self.remove_buttons.append([Button(master=self.canvas, command=partial(delete_image, len(self.temp)-1), text='x',
+                   state=ACTIVE),True])
+            paint_burger()
+
+        def delete_image(index):
+            self.remove_buttons[index][1] = False
+            self.remove_buttons[index][0].destroy()
+            self.temp[index][1] = False
+            paint_burger()
+
+        def start():
+            res_word = []
+            for character in self.temp:
+                if character[1]:
+                    res_word.append(character[0])
+            self.init_words(','.join(res_word))
+            self.temp = []
+            self.remove_buttons = []
+            self.window_create_word.destroy()
+
+        self.window_create_word = Toplevel(self.frame)
+        self.canvas = Canvas(self.window_create_word,width=300,height=500)
+        self.canvas.pack()
+
+        y = 10
+        for character in self.alphabet:
+            b = Button(master=self.canvas, command=partial(add_image, character.char_name), image=character.image,
+                   state=ACTIVE, height=Character.HEIGHT)
+            b.place(x=300-Character.WIDTH-10,y=y)
+            y += Character.HEIGHT + 10
+        res_button = Button(master=self.canvas, command=start, text='Vytvor slovo',
+                            state=ACTIVE)
+        res_button.place(x=300-Character.WIDTH-10, y=y+10)
+        paint_burger()
+
+
     def paint_rules(self):
         x = 10
         y = 10
@@ -224,6 +283,7 @@ class Main:
         return y
 
     def paint_start_word(self):
+        self.canvas_right.create_image(0, 0, image=self.background, anchor=NW)
         x = 10
         y = 10
         self.canvas_right.create_image(x, y, image=self.burger[0], anchor=NW)
@@ -258,19 +318,15 @@ class Main:
         self.canvas_rules.delete('all')
         y = self.paint_rules()
         self.paint_alphabet()
-        initY = y
-        x = 10
 
         self.paint_start_word()
-
-        y = initY
-        x += Character.WIDTH
 
         self.paint_goal_word()
 
 
 
     def init_words(self, word1=None):
+        print(word1)
         self.steps = []
         if word1 is None:
             word1 = ''
@@ -316,6 +372,7 @@ class Main:
                     temp = temp.next_node
                     last_node = temp
                 if is_equal:
+                    print(rule.name)
                     node.data = self.characters[rule.replace_characters[0].char_name]
                     for i in rule.replace_characters[1:]:
                         node.next_node = Node(self.characters[i.char_name])
@@ -327,7 +384,7 @@ class Main:
 
     def generate_goal_word(self):
         p = list(self.rules.keys())
-        for i in range(random.randrange(2, 4)):
+        for i in range(random.randrange(3, 5)):
             pom = self.goal
             random.shuffle(p)
             for r in p:
@@ -360,10 +417,6 @@ class Main:
         is_applied = self.apply(pom, key)
         self.steps.append(key)
         pom = self.my_word
-        # while pom is not None:
-        #     print(pom.data.char_name, end=' ')
-        #     pom = pom.next_node
-        # print()
         if not is_init:
             self.print_next_step()
             self.check_if_end()
