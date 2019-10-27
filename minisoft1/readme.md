@@ -17,13 +17,9 @@
 * musia obsahovat " -> ", hladanu postupnost a nahradzajucu postupnost
 * znaky postupnosti musia tvorit nazvy obrazkov
 * nazvy obrazkov musia byt oddelene ciarkou
+* kazda postupnost musi mat aspon 1 znak
 * kazda postupnost moze mat maximalne 3 znaky
-* hladana postupnost musi mat aspon 1 znak
-* ak je nahradzajucu postupnost prazdna, musi obsahovat znak %
 		 
 **Vstupne slovo** 
-* rozsah 1 - 5 znakov
-
-###TODO
-* vytvorenie vlastneho slova
-  * aktualne sa generuje nahodne
+* rozsah 1 - 4 znaky
+* ak nie je vstupne slovo zadane, je automaticky vygenerované

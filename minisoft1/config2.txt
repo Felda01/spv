@@ -1,4 +1,5 @@
 ./images/characters
-m -> r,r
-r -> m,d
-s -> r,d
+t -> s,n
+o -> o,t
+n,s -> t,o
+m -> t,s

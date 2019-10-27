@@ -32,6 +32,14 @@ class Node:
             pom = pom.next_node
             node = node.next_node
 
+    def size(self):
+        count = 0
+        pom = self
+        while pom is not None:
+            count += 1
+            pom = pom.next_node
+        return count
+
     def copy(self):
         new_root = Node(self.data)
 
@@ -64,7 +72,7 @@ class Rule:
 
     def __init__(self, line):
         self.name = line
-        if not re.match(r"([^/\\?%*:|\"<>]+ -> [^/\\?%*:|\"<>]+)|([^/\\?%*:|\"<>]+ -> %)", self.name):
+        if not re.match(r"[^/\\?%*:|\"<>]+ -> [^/\\?%*:|\"<>]+", self.name):
             raise ValueError
         array = self.name.strip().split(' -> ')
         self.search = array[0].split(',')
@@ -105,7 +113,12 @@ class Rule:
 
         new_image.save(PATH_RULES + file_name + '.png', "PNG")
 
+        image = new_image.resize((int((Character.WIDTH * 2 + Character.ARROW) * 0.4), int(self.height * 0.4)), Image.ANTIALIAS)
+
+        image.save(PATH_RULES + file_name + '_small.png', 'PNG')
+
         self.image = ImageTk.PhotoImage(Image.open(PATH_RULES + file_name + '.png'))
+        self.image_for_step = ImageTk.PhotoImage(Image.open(PATH_RULES + file_name + '_small.png'))
 
 
 class Main:
@@ -228,8 +241,13 @@ class Main:
 
 
         def add_image(name):
+            count = 0
+            for item in self.temp:
+                if item[1]:
+                    count += 1
+            if count > 3:
+                return
             self.temp.append([name,True])
-            print(len(self.temp)-1)
             self.remove_buttons.append([Button(master=self.canvas, command=partial(delete_image, len(self.temp)-1), text='x',
                    state=ACTIVE),True])
             paint_burger()
@@ -251,14 +269,14 @@ class Main:
             self.window_create_word.destroy()
 
         self.window_create_word = Toplevel(self.frame)
-        self.canvas = Canvas(self.window_create_word,width=300,height=500)
+        self.canvas = Canvas(self.window_create_word,width=400,height=(len(self.alphabet)+3)*Character.HEIGHT,bg='green')
         self.canvas.pack()
 
         y = 10
         for character in self.alphabet:
             b = Button(master=self.canvas, command=partial(add_image, character.char_name), image=character.image,
                    state=ACTIVE, height=Character.HEIGHT)
-            b.place(x=300-Character.WIDTH-10,y=y)
+            b.place(x=400-Character.WIDTH-10,y=y)
             y += Character.HEIGHT + 10
         res_button = Button(master=self.canvas, command=start, text='Vytvor slovo',
                             state=ACTIVE)
@@ -326,9 +344,8 @@ class Main:
 
 
     def init_words(self, word1=None):
-        print(word1)
         self.steps = []
-        if word1 is None:
+        if word1 is None or word1 == '':
             word1 = ''
             for i in range(random.randrange(3, 6)):
                 char = random.choice(list(self.alphabet))
@@ -372,7 +389,6 @@ class Main:
                     temp = temp.next_node
                     last_node = temp
                 if is_equal:
-                    print(rule.name)
                     node.data = self.characters[rule.replace_characters[0].char_name]
                     for i in rule.replace_characters[1:]:
                         node.next_node = Node(self.characters[i.char_name])
@@ -385,6 +401,8 @@ class Main:
     def generate_goal_word(self):
         p = list(self.rules.keys())
         for i in range(random.randrange(3, 5)):
+            if self.goal.size() > 7:
+                return
             pom = self.goal
             random.shuffle(p)
             for r in p:
@@ -445,9 +463,13 @@ class Main:
                     y += Character.HEIGHT
                     pom = pom.next_node
                 self.canvas_right.create_image(x, y, image=self.burger[1], anchor=NW)
+                y += Character.HEIGHT + 10
+                self.canvas_right.create_rectangle(x,y,x+self.rules[self.steps[i]].image_for_step.width()+4,
+                                                   y+self.rules[self.steps[i]].image_for_step.height()+4,fill='white')
+                self.canvas_right.create_image(x+2, y+2,
+                                               image=self.rules[self.steps[i]].image_for_step, anchor=NW)
                 x += Character.WIDTH+5
                 y = 10
-
 
         else:
             if not self.steps:
