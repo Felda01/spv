@@ -18,7 +18,7 @@ class Item:
 
 
 class Person(Item):
-    def __init__(self, x: int, y: int, color: str, name=''):
+    def __init__(self, x=0, y=0, color='', name=''):
         super().__init__(color, name)
         self.x = x
         self.y = y
@@ -47,7 +47,7 @@ class Person(Item):
 
 
 class Relation(Item):
-    def __init__(self, color: str, parent: Person, child: Person, name=''):
+    def __init__(self, color='', parent=None, child=None, name=''):
         super().__init__(color, name)
         self.parent = parent
         self.child = child
@@ -117,6 +117,7 @@ class Main:
         if os.path.isfile(file_name):
             with open(file_name, 'r') as file:
                 row = file.readline().strip()
+                uid_persons = dict()
                 while row != '':
                     row_items = row.split(';')
                     properties = dict()
@@ -130,6 +131,7 @@ class Main:
                     current_row_hash = hash(';'.join("{!s}={!r}".format(key, value) for (key, value) in properties.items()))
                     if str(old_row_hash) != str(current_row_hash):
                         continue
+
 
     def save(self, file_name: str):
         pass
