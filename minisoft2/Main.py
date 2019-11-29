@@ -33,7 +33,7 @@ class Person(Item):
         self.x = x
         self.y = y
         self.a = 7*len(self.name) # set x-radius
-        self.b = 20        # set y-radius
+        self.b = 20               # set y-radius
         if uid:
             self.uid = uid
         else:
@@ -57,12 +57,7 @@ class Person(Item):
         return ((event.x-self.x)**2)/self.a**2 + ((event.y-self.y)**2)/self.b**2 <= 1.0
 
     def load(self, properties: dict):
-        self.name = properties['name']
-        self.color = properties['color']
-        self.x = int(properties['x'])
-        self.y = int(properties['y'])
-        self.a = 7*len(self.name)  # set x-radius
-        self.b = 20  # set y-radius
+        self.__init__(int(properties['x']), int(properties['y']), properties['color'], properties['name'])
 
     def save(self):
         string_properties = ';'.join(['type=person', 'uid=' + str(self.uid), 'name=' + super().name, 'x=' + str(self.x),
@@ -85,10 +80,7 @@ class Relation(Item):
         pass
 
     def load(self, properties: dict):
-        self.name = properties['name']
-        self.color = properties['color']
-        self.parent = properties['parent']
-        self.child = properties['child']
+        self.__init__(properties['color'], properties['parent'], properties['child'], properties['name'])
 
     def save(self, uid_parent: str, uid_child: str):
         string_properties = ';'.join(['type=relation', 'uid_parent=' + str(uid_parent), 'uid_child=' + str(uid_child),
