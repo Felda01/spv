@@ -17,11 +17,13 @@ class Item:
 
     def draw_info(self, canvas: Canvas):
         canvas.delete('all')
+        if not self.focus:
+            return
 
-        canvas.create_text(10, 10, text='Meno')
-        canvas.create_text(Main.LEFT_WIDTH // 2 + 10, 10, text=self.name)
+        canvas.create_text(10, 10, text='Meno', anchor=NW)
+        canvas.create_text(Main.LEFT_WIDTH // 2 + 10, 10, text=self.name, anchor=NW)
 
-        canvas.create_text(10, 10, text='Farba')
+        canvas.create_text(10, 60, text='Farba', anchor=NW)
         canvas.create_rectangle(Main.LEFT_WIDTH // 2 + 10, 60, Main.LEFT_WIDTH - 10, 100, fill=self.color, outline='black', width=3)
 
 
@@ -30,7 +32,7 @@ class Person(Item):
         super().__init__(color, name)
         self.x = x
         self.y = y
-        self.a = len(name) # set x-radius
+        self.a = 7*len(self.name) # set x-radius
         self.b = 20        # set y-radius
         if uid:
             self.uid = uid
@@ -45,17 +47,22 @@ class Person(Item):
         if self.focus:
             outline = self.focus_border_color
         canvas.create_oval(self.x - self.a, self.y - self.b, self.x + self.a, self.y + self.b,
-                           fill=self.color, outline=outline)
+                           fill=self.color, outline=outline, width=2)
         canvas.create_text(self.x, self.y, text=self.name)
 
     def draw_info(self, canvas: Canvas):
         super().draw_info(canvas)
 
+    def is_click_in(self, event):
+        return ((event.x-self.x)**2)/self.a**2 + ((event.y-self.y)**2)/self.b**2 <= 1.0
+
     def load(self, properties: dict):
         self.name = properties['name']
         self.color = properties['color']
-        self.x = properties['x']
-        self.y = properties['y']
+        self.x = int(properties['x'])
+        self.y = int(properties['y'])
+        self.a = 7*len(self.name)  # set x-radius
+        self.b = 20  # set y-radius
 
     def save(self):
         string_properties = ';'.join(['type=person', 'uid=' + str(self.uid), 'name=' + super().name, 'x=' + str(self.x),
@@ -103,7 +110,7 @@ class Main:
 
     def __init__(self):
         self.window = Tk()
-        self.window.title('Burgraren')
+        self.window.title('Rodostrom')
         self.window.resizable(False, False)
         self.frame = Frame(self.window, bg='black').pack()
         # TOP
@@ -117,12 +124,13 @@ class Main:
         # RIGHT
         self.canvas_right = Canvas(self.frame, width=self.RIGHT_WIDTH, height=self.RIGHT_HEIGHT, bg='lightblue')
         self.canvas_right.pack(side=RIGHT, expand=False)
-        b = Button(self.canvas_top, text='Načítaj súbor', command=self.select_file)
-        b.place(x=10, y=10)
-        b = Button(self.canvas_top, text='Ulož Slovo', command=self.save)
-        b.place(x=100, y=10)
-        b = Button(self.canvas_top, text='Export', command=self.export)
-        b.place(x=200, y=10)
+        self.canvas_right.bind('<Button-1>', self.click)
+        b = Button(self.canvas_top, text='Načítaj rodostrom', command=self.select_file)
+        b.place(x=10, y=13)
+        b = Button(self.canvas_top, text='Ulož rodostrom', command=self.save)
+        b.place(x=120, y=13)
+        b = Button(self.canvas_top, text='Obrázok', command=self.export)
+        b.place(x=217, y=13)
 
         self.graph = dict()
         self.selected_item = None
@@ -131,7 +139,7 @@ class Main:
         filename = filedialog.askopenfilename()
         if filename:
             self.load(filename)
-            print(self.graph)
+        self.paint_graph()
 
     def load(self, file_name: str):
         if os.path.isfile(file_name):
@@ -183,7 +191,17 @@ class Main:
         pass
 
     def click(self, event: Event):
-        pass
+        for person in self.graph.keys():
+            if person.is_click_in(event):
+                person.focus = not person.focus
+                person.draw_info(self.canvas_left)
+                self.paint_graph()
+                return
+
+    def paint_graph(self):
+        self.canvas_right.delete('all')
+        for person in self.graph.keys():
+            person.draw_item(self.canvas_right)
 
     def add_relation(self, relation: Relation):
         if relation.parent in self.graph and relation.child in self.graph:
