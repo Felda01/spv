@@ -14,7 +14,13 @@ class Item:
         pass
 
     def draw_info(self, canvas: Canvas):
-        pass
+        canvas.delete('all')
+
+        canvas.create_text(10, 10, text='Meno')
+        canvas.create_text(Main.LEFT_WIDTH // 2 + 10, 10, text=self.name)
+
+        canvas.create_text(10, 10, text='Farba')
+        canvas.create_rectangle(Main.LEFT_WIDTH // 2 + 10, 60, Main.LEFT_WIDTH - 10, 100, fill=self.color, outline='black', width=3)
 
 
 class Person(Item):
@@ -22,12 +28,19 @@ class Person(Item):
         super().__init__(color, name)
         self.x = x
         self.y = y
+        self.a = len(name) # set x-radius
+        self.b = 20        # set y-radius
 
     def move(self, event: Event):
         pass
 
     def draw_item(self, canvas: Canvas):
-        pass
+        outline = 'black'
+        if self.focus:
+            outline = self.focus_border_color
+        canvas.create_oval(self.x - self.a, self.y - self.b, self.x + self.a, self.y + self.b,
+                           fill=self.color, outline=outline)
+        canvas.create_text(self.x, self.y, text=self.name)
 
     def draw_info(self, canvas: Canvas):
         super().draw_info(canvas)
