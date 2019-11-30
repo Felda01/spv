@@ -119,7 +119,13 @@ class Main:
         # RIGHT
         self.canvas_right = Canvas(self.frame, width=self.RIGHT_WIDTH, height=self.RIGHT_HEIGHT)
         self.canvas_right.pack(side=RIGHT, expand=False)
+
+        # BINDINGS
         self.canvas_right.bind('<Button-1>', self.click)
+        self.canvas_right.bind('<B1-Motion>', self.move)
+        self.canvas_right.bind('<ButtonPress-1>', self.start_move)
+
+        # IMAGES
         self.background_right = PhotoImage(file='images/background.png')
         self.background_left = PhotoImage(file='images/background_left.png')
         b = Button(self.canvas_top, text='Načítaj rodostrom', command=self.select_file_load)
@@ -149,6 +155,7 @@ class Main:
             self.save(filename)
 
     def load(self, file_name: str):
+        self.graph = dict()
         if os.path.isfile(file_name):
             with open(file_name, 'r') as file:
                 row = file.readline().strip()
@@ -262,6 +269,22 @@ class Main:
     def add_person(self, person: Person):
         if person not in self.graph:
             self.graph[person] = list()
+
+    def move(self, event):
+        deltax = event.x - self.moving_object.x
+        deltay = event.y - self.moving_object.y
+        self.moving_object.x += deltax
+        self.moving_object.y += deltay
+        self.x = event.x
+        self.y = event.y
+        self.paint_graph()
+
+    def start_move(self, event):
+        self.moving_object = None
+        for person in self.graph.keys():
+            if person.is_click_in(event):
+                self.moving_object = person
+                return
 
 
 if __name__ == '__main__':
