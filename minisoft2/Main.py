@@ -3,6 +3,7 @@ from tkinter import filedialog
 import os
 import uuid
 import hashlib
+from functools import partial
 
 
 class Item:
@@ -16,15 +17,14 @@ class Item:
         pass
 
     def draw_info(self, canvas: Canvas):
-        canvas.delete('all')
         if not self.focus:
             return
 
-        canvas.create_text(10, 10, text='Meno', anchor=NW)
-        canvas.create_text(Main.LEFT_WIDTH // 2 + 10, 10, text=self.name, anchor=NW)
+        canvas.create_text(30, 50, text='Meno', anchor=NW, fill='green', font=Main.FONT_STYLE)
+        canvas.create_text(Main.LEFT_WIDTH // 2 + 10, 50, text=self.name, anchor=NW, fill='white', font=Main.FONT_STYLE)
 
-        canvas.create_text(10, 60, text='Farba', anchor=NW)
-        canvas.create_rectangle(Main.LEFT_WIDTH // 2 + 10, 60, Main.LEFT_WIDTH - 10, 100, fill=self.color, outline='black', width=3)
+        canvas.create_text(30, 75, text='Farba', anchor=NW, fill='green', font=Main.FONT_STYLE)
+        canvas.create_rectangle(Main.LEFT_WIDTH // 2 + 10, 80, Main.LEFT_WIDTH - 30, 95, fill=self.color, outline='black', width=3)
 
 
 class Person(Item):
@@ -48,7 +48,7 @@ class Person(Item):
             outline = self.focus_border_color
         canvas.create_oval(self.x - self.a, self.y - self.b, self.x + self.a, self.y + self.b,
                            fill=self.color, outline=outline, width=2)
-        canvas.create_text(self.x, self.y, text=self.name)
+        canvas.create_text(self.x, self.y, text=self.name, font=Main.FONT_STYLE)
 
     def draw_info(self, canvas: Canvas):
         super().draw_info(canvas)
@@ -99,24 +99,29 @@ class Main:
     LEFT_HEIGHT = WINDOW_HEIGHT - TOP_HEIGHT
     RIGHT_WIDTH = WINDOW_WIDTH - LEFT_WIDTH
     RIGHT_HEIGHT = WINDOW_HEIGHT - TOP_HEIGHT
+    FONT_STYLE = 'system 15 bold'
+    COLORS = ['white', 'green', 'blue', 'orange', 'brown', 'grey', 'gold']
 
     def __init__(self):
         self.window = Tk()
         self.window.title('Rodostrom')
         self.window.resizable(False, False)
+        self.window.configure(bg='black')
         self.frame = Frame(self.window, bg='black').pack()
         # TOP
         self.canvas_top = Canvas(self.frame, width=self.TOP_WIDTH, height=self.TOP_HEIGHT, bg='green')
         self.canvas_top.pack(side=TOP, expand=False)
         # LEFT
-        self.canvas_left = Canvas(self.frame, width=self.LEFT_WIDTH, height=self.LEFT_HEIGHT, bg='#bada55',
+        self.canvas_left = Canvas(self.frame, width=self.LEFT_WIDTH, height=self.LEFT_HEIGHT,
                                   scrollregion=(0, 0, self.LEFT_WIDTH, self.LEFT_HEIGHT))
         self.canvas_left.pack(side=LEFT, expand=False)
 
         # RIGHT
-        self.canvas_right = Canvas(self.frame, width=self.RIGHT_WIDTH, height=self.RIGHT_HEIGHT, bg='lightblue')
+        self.canvas_right = Canvas(self.frame, width=self.RIGHT_WIDTH, height=self.RIGHT_HEIGHT)
         self.canvas_right.pack(side=RIGHT, expand=False)
         self.canvas_right.bind('<Button-1>', self.click)
+        self.background_right = PhotoImage(file='images/background.png')
+        self.background_left = PhotoImage(file='images/background_left.png')
         b = Button(self.canvas_top, text='Načítaj rodostrom', command=self.select_file_load)
         b.place(x=10, y=13)
         b = Button(self.canvas_top, text='Ulož rodostrom', command=self.select_file_save)
@@ -126,6 +131,10 @@ class Main:
 
         self.graph = dict()
         self.selected_item = None
+        self.picked = []
+
+        self.paint_graph()
+        self.draw_color_picker()
 
     def select_file_load(self):
         filename = filedialog.askopenfilename()
@@ -201,20 +210,47 @@ class Main:
         pass
 
     def delete_canvas(self):
+        self.canvas_right.delete('all')
+        self.canvas_right.create_image(0,0,image=self.background_right,anchor=NW)
+        self.canvas_left.delete('all')
+        self.canvas_left.create_image(0, 0, image=self.background_left, anchor=NW)
         pass
 
     def click(self, event: Event):
         for person in self.graph.keys():
             if person.is_click_in(event):
                 person.focus = not person.focus
-                person.draw_info(self.canvas_left)
-                self.paint_graph()
-                return
+                if person.focus:
+                    self.picked.append(person)
+                else:
+                    self.picked.remove(person)
+        self.paint_graph()
 
     def paint_graph(self):
-        self.canvas_right.delete('all')
+        self.delete_canvas()
         for person in self.graph.keys():
             person.draw_item(self.canvas_right)
+        if len(self.picked) > 0:
+            self.picked[-1].draw_info(self.canvas_left)
+
+    def draw_color_picker(self):
+        x = 25
+        y = 365
+        r = None
+        for color in self.COLORS:
+            btn = Button(master=self.canvas_left,command=partial(self.set_color,color),bg=color,width=5,height=2)
+            btn.place(x=x,y=y)
+            x += 50
+            if x+50 >= self.LEFT_WIDTH:
+                x = 25
+                y += 50
+
+    def set_color(self, color):
+        for person in self.graph.keys():
+            if person.focus:
+                person.color = color
+        self.paint_graph()
+
 
     def add_relation(self, relation: Relation):
         if relation.parent in self.graph and relation.child in self.graph:
