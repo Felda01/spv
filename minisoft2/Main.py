@@ -60,9 +60,9 @@ class Person(Item):
         self.__init__(int(properties['x']), int(properties['y']), properties['color'], properties['name'])
 
     def save(self):
-        string_properties = ';'.join(['type=person', 'uid=' + str(self.uid), 'name=' + super().name, 'x=' + str(self.x),
-                                      'y=' + str(self.y), 'color=' + super().color])
-        hash_properties = hash(string_properties)
+        string_properties = ';'.join(['type=person', 'uid=' + str(self.uid), 'name=' + self.name, 'x=' + str(self.x),
+                                      'y=' + str(self.y), 'color=' + self.color])
+        hash_properties = hashlib.sha1(string_properties.encode()).hexdigest()
 
         return string_properties + ';hash=' + str(hash_properties)
 
@@ -82,10 +82,10 @@ class Relation(Item):
     def load(self, properties: dict):
         self.__init__(properties['color'], properties['parent'], properties['child'], properties['name'])
 
-    def save(self, uid_parent: str, uid_child: str):
-        string_properties = ';'.join(['type=relation', 'uid_parent=' + str(uid_parent), 'uid_child=' + str(uid_child),
-                                      'name=' + super().name, 'color=' + super().color])
-        hash_properties = hash(string_properties)
+    def save(self):
+        string_properties = ';'.join(['type=relation', 'parent=' + str(self.parent.uid), 'child=' + str(self.child.uid),
+                                      'name=' + self.name, 'color=' + self.color])
+        hash_properties = hashlib.sha1(string_properties.encode()).hexdigest()
 
         return string_properties + ';hash=' + str(hash_properties)
 
@@ -117,9 +117,9 @@ class Main:
         self.canvas_right = Canvas(self.frame, width=self.RIGHT_WIDTH, height=self.RIGHT_HEIGHT, bg='lightblue')
         self.canvas_right.pack(side=RIGHT, expand=False)
         self.canvas_right.bind('<Button-1>', self.click)
-        b = Button(self.canvas_top, text='Načítaj rodostrom', command=self.select_file)
+        b = Button(self.canvas_top, text='Načítaj rodostrom', command=self.select_file_load)
         b.place(x=10, y=13)
-        b = Button(self.canvas_top, text='Ulož rodostrom', command=self.save)
+        b = Button(self.canvas_top, text='Ulož rodostrom', command=self.select_file_save)
         b.place(x=120, y=13)
         b = Button(self.canvas_top, text='Obrázok', command=self.export)
         b.place(x=217, y=13)
@@ -127,11 +127,17 @@ class Main:
         self.graph = dict()
         self.selected_item = None
 
-    def select_file(self):
+    def select_file_load(self):
         filename = filedialog.askopenfilename()
         if filename:
+            #TODO: ak existuje graf, opytat sa ci chce aktualny zahodit a otvorit novy
             self.load(filename)
         self.paint_graph()
+
+    def select_file_save(self):
+        filename = filedialog.askopenfilename()
+        if filename:
+            self.save(filename)
 
     def load(self, file_name: str):
         if os.path.isfile(file_name):
@@ -174,7 +180,22 @@ class Main:
                     row = file.readline().strip()
 
     def save(self, file_name: str):
-        pass
+        persons = set()
+        relations = set()
+
+        for person in self.graph:
+            persons.add(person)
+            person_relations = self.graph[person]
+            for relation in person_relations:
+                relations.add(relation)
+
+        if os.path.isfile(file_name):
+            with open(file_name, 'w') as file:
+                for person in persons:
+                    file.write(person.save() + '\n')
+
+                for relation in relations:
+                    file.write(relation.save() + '\n')
 
     def export(self):
         pass
