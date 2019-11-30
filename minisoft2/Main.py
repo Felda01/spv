@@ -4,6 +4,7 @@ import os
 import uuid
 import hashlib
 from functools import partial
+import re
 
 
 class Item:
@@ -100,7 +101,8 @@ class Main:
     RIGHT_WIDTH = WINDOW_WIDTH - LEFT_WIDTH
     RIGHT_HEIGHT = WINDOW_HEIGHT - TOP_HEIGHT
     FONT_STYLE = 'system 15 bold'
-    COLORS = ['white', 'green', 'blue', 'orange', 'brown', 'grey', 'gold']
+    COLORS_DEFAULT = ['white', 'green', 'blue', 'orange', 'brown', 'grey', 'gold']
+    CONFIG_COLORS_FILE = './config/colors.txt'
 
     def __init__(self):
         self.window = Tk()
@@ -140,8 +142,10 @@ class Main:
         self.selected_item = None
         self.picked = []
         self.moving_object = None
+        self.colors = []
 
         self.paint_graph()
+        self.load_colors()
         self.draw_color_picker()
 
     def select_file_load(self):
@@ -246,11 +250,11 @@ class Main:
         x = 25
         y = 365
         r = None
-        for color in self.COLORS:
-            btn = Button(master=self.canvas_left,command=partial(self.set_color,color),bg=color,width=5,height=2)
-            btn.place(x=x,y=y)
+        for color in self.colors:
+            btn = Button(master=self.canvas_left, command=partial(self.set_color, color), bg=color, width=5, height=2)
+            btn.place(x=x, y=y)
             x += 50
-            if x+50 >= self.LEFT_WIDTH:
+            if x + 50 >= self.LEFT_WIDTH:
                 x = 25
                 y += 50
 
@@ -259,7 +263,6 @@ class Main:
             if person.focus:
                 person.color = color
         self.paint_graph()
-
 
     def add_relation(self, relation: Relation):
         if relation.parent in self.graph and relation.child in self.graph:
@@ -295,6 +298,20 @@ class Main:
 
     def end_move(self, event):
         self.moving_object = None
+
+    def load_colors(self):
+        self.colors = []
+        if os.path.isfile(self.CONFIG_COLORS_FILE):
+            with open(self.CONFIG_COLORS_FILE, 'r') as file:
+                row = file.readline().strip()
+                while row != '':
+                    match = re.search(r'^#(?:[0-9a-fA-F]{3}){1,2}$', row)
+                    if match:
+                        self.colors.append(row)
+                    row = file.readline().strip()
+
+        if not self.colors:
+            self.colors = self.COLORS_DEFAULT
 
 
 if __name__ == '__main__':
