@@ -123,7 +123,6 @@ class Main:
         self.canvas_right.pack(side=RIGHT, expand=False)
 
         # BINDINGS
-        self.canvas_right.bind('<Button-1>', self.click)
         self.canvas_right.bind('<B1-Motion>', self.move)
         self.canvas_right.bind('<ButtonPress-1>', self.start_move)
         self.canvas_right.bind('<ButtonRelease-1>', self.end_move)
@@ -131,17 +130,29 @@ class Main:
         # IMAGES
         self.background_right = PhotoImage(file='images/background.png')
         self.background_left = PhotoImage(file='images/background_left.png')
+
+        # BUTTONS
         b = Button(self.canvas_top, text='Načítaj rodostrom', command=self.select_file_load)
         b.place(x=10, y=13)
         b = Button(self.canvas_top, text='Ulož rodostrom', command=self.select_file_save)
         b.place(x=120, y=13)
         b = Button(self.canvas_top, text='Obrázok', command=self.export)
         b.place(x=217, y=13)
+        self.operations = dict()
+        self.operations['create_person'] = Button(master=self.canvas_right, text='Pridaj osobu', width=12,
+                                                  command=partial(self.set_operation, 'create_person'), bg='white')
+        self.operations['create_person'].place(x=10, y=self.RIGHT_HEIGHT - 150)
+        self.operations['create_relationship'] = Button(master=self.canvas_right, text='pridaj vztah', width=12,
+                                                        command=partial(self.set_operation, 'create_relationship'), bg='white')
+        self.operations['create_relationship'].place(x=10, y=self.RIGHT_HEIGHT - 100)
+        self.operations['moving'] = Button(master=self.canvas_right, text='posuvaj osobu', width=12,
+                                           command=partial(self.set_operation, 'moving'), bg='white')
+        self.operations['moving'].place(x=10, y=self.RIGHT_HEIGHT - 50)
 
         self.graph = dict()
-        self.selected_item = None
         self.picked = []
         self.moving_object = None
+        self.operation = None
         self.colors = []
 
         self.paint_graph()
@@ -229,16 +240,6 @@ class Main:
         self.canvas_left.create_image(0, 0, image=self.background_left, anchor=NW)
         pass
 
-    def click(self, event: Event):
-        for person in self.graph.keys():
-            if person.is_click_in(event):
-                person.focus = not person.focus
-                if person.focus:
-                    self.picked.append(person)
-                else:
-                    self.picked.remove(person)
-        self.paint_graph()
-
     def paint_graph(self):
         self.delete_canvas()
         for person in self.graph.keys():
@@ -276,25 +277,34 @@ class Main:
             self.graph[person] = list()
 
     def move(self, event):
-        deltax = event.x - self.moving_object.x
-        deltay = event.y - self.moving_object.y
-        self.moving_object.x += deltax
-        self.moving_object.y += deltay
-        self.x = event.x
-        self.y = event.y
-        self.paint_graph()
+        if self.moving_object is not None:
+            deltax = event.x - self.moving_object.x
+            deltay = event.y - self.moving_object.y
+            self.moving_object.x += deltax
+            self.moving_object.y += deltay
+            self.x = event.x
+            self.y = event.y
+            self.paint_graph()
 
     def start_move(self, event):
-        self.moving_object = None
-        for person in self.graph.keys():
-            if person.is_click_in(event):
-                self.moving_object = person
-                person.focus = not person.focus
-                if person.focus:
-                    self.picked.append(person)
-                else:
-                    self.picked.remove(person)
+        if self.operation == 'create_person':
+            person = Person(x=event.x, y=event.y, color='white', name='Zadaj meno')
+            self.add_person(person)
+        elif self.operation == 'moving':
+            self.moving_object = None
+            for person in self.graph.keys():
+                if person.is_click_in(event):
+                    self.moving_object = person
+                    person.focus = not person.focus
+                    if person.focus:
+                        self.picked.append(person)
+                    else:
+                        self.picked.remove(person)
         self.paint_graph()
+
+    def remove_all_focuses(self):
+        for person in self.graph.keys():
+            person.focus = False
 
     def end_move(self, event):
         self.moving_object = None
@@ -312,6 +322,18 @@ class Main:
 
         if not self.colors:
             self.colors = self.COLORS_DEFAULT
+
+    def set_operation(self, operation_name):
+        if self.operation == operation_name:
+            self.operation = None
+            self.operations[operation_name].config(bg='white')
+        elif self.operation is None:
+            self.operation = operation_name
+            self.operations[operation_name].config(bg='green')
+        else:
+            self.operations[self.operation].config(bg='white')
+            self.operation = operation_name
+            self.operations[operation_name].config(bg='green')
 
 
 if __name__ == '__main__':
