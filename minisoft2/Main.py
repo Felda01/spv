@@ -124,6 +124,7 @@ class Main:
         self.canvas_right.bind('<Button-1>', self.click)
         self.canvas_right.bind('<B1-Motion>', self.move)
         self.canvas_right.bind('<ButtonPress-1>', self.start_move)
+        self.canvas_right.bind('<ButtonRelease-1>', self.end_move)
 
         # IMAGES
         self.background_right = PhotoImage(file='images/background.png')
@@ -138,6 +139,7 @@ class Main:
         self.graph = dict()
         self.selected_item = None
         self.picked = []
+        self.moving_object = None
 
         self.paint_graph()
         self.draw_color_picker()
@@ -284,7 +286,15 @@ class Main:
         for person in self.graph.keys():
             if person.is_click_in(event):
                 self.moving_object = person
-                return
+                person.focus = not person.focus
+                if person.focus:
+                    self.picked.append(person)
+                else:
+                    self.picked.remove(person)
+        self.paint_graph()
+
+    def end_move(self, event):
+        self.moving_object = None
 
 
 if __name__ == '__main__':
