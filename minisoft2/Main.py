@@ -150,7 +150,7 @@ class Main:
         self.paint_graph()
 
     def select_file_save(self):
-        filename = filedialog.askopenfilename()
+        filename = filedialog.asksaveasfilename()
         if filename:
             self.save(filename)
 
