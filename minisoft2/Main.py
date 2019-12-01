@@ -55,6 +55,8 @@ class Person(Item):
         canvas.create_text(self.x, self.y, text=self.name, font=Main.FONT_STYLE)
 
     def draw_info(self, canvas: Canvas):
+        canvas.create_text(Main.LEFT_WIDTH // 2, 28, text='OSOBA', fill='green', font=Main.FONT_STYLE)
+
         super().draw_info(canvas)
 
         canvas.create_text(30, 110, text='Pozícia X', anchor=NW, fill='blue', font=Main.FONT_STYLE)
@@ -91,6 +93,8 @@ class Relation(Item):
         self.child = child
 
     def draw_info(self, canvas: Canvas):
+        canvas.create_text(Main.LEFT_WIDTH // 2, 28, text='VZTAH', fill='green', font=Main.FONT_STYLE)
+
         super().draw_info(canvas)
 
     def draw_item(self, canvas: Canvas):
@@ -362,7 +366,8 @@ class Main:
                     if person.focus:
                         self.picked.append(person)
                     else:
-                        self.picked.remove(person)
+                        if person in self.picked:
+                            self.picked.remove(person)
                     picked = True
             if not picked:
                 for person in self.graph.keys():
@@ -372,7 +377,8 @@ class Main:
                             if relation.focus:
                                 self.picked.append(relation)
                             else:
-                                self.picked.remove(relation)
+                                if relation in self.picked:
+                                    self.picked.remove(relation)
         elif self.operation == 'create_person':
             self.remove_all_focuses()
             person = Person(x=event.x, y=event.y, color='white', name='Zadaj meno')
@@ -391,7 +397,8 @@ class Main:
                     if person.focus:
                         self.picked.append(person)
                     else:
-                        self.picked.remove(person)
+                        if person in self.picked:
+                            self.picked.remove(person)
                     break
             if len(self.picked) == 2:
                 relation = Relation(color='black', parent=self.picked[0], child=self.picked[1], name='')
