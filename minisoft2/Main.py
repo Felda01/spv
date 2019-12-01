@@ -44,7 +44,7 @@ class Person(Item):
         pass
 
     def draw_item(self, canvas: Canvas):
-        outline = 'black'
+        outline = self.color
         if self.focus:
             outline = self.focus_border_color
         canvas.create_oval(self.x - self.a, self.y - self.b, self.x + self.a, self.y + self.b,
@@ -78,7 +78,7 @@ class Relation(Item):
         super().draw_info(canvas)
 
     def draw_item(self, canvas: Canvas):
-        pass
+        canvas.create_line(self.parent.x+self.parent.a,self.parent.y,self.child.x-self.child.a,self.child.y,width=3,arrow=LAST,arrowshape=(20,40,10),fill='white')
 
     def load(self, properties: dict):
         self.__init__(properties['color'], properties['parent'], properties['child'], properties['name'])
@@ -243,7 +243,10 @@ class Main:
     def paint_graph(self):
         self.delete_canvas()
         for person in self.graph.keys():
+            for relation in self.graph[person]:
+                relation.draw_item(self.canvas_right)
             person.draw_item(self.canvas_right)
+
         if len(self.picked) > 0:
             self.picked[-1].draw_info(self.canvas_left)
 
@@ -269,8 +272,8 @@ class Main:
         if relation.parent in self.graph and relation.child in self.graph:
             if relation not in self.graph[relation.parent]:
                 self.graph[relation.parent].append(relation)
-            if relation not in self.graph[relation.child]:
-                self.graph[relation.child].append(relation)
+            # if relation not in self.graph[relation.child]:
+            #     self.graph[relation.child].append(relation)
 
     def add_person(self, person: Person):
         if person not in self.graph:
@@ -278,6 +281,8 @@ class Main:
 
     def move(self, event):
         if self.moving_object is not None:
+            self.remove_all_focuses()
+            self.moving_object.focus = True
             deltax = event.x - self.moving_object.x
             deltay = event.y - self.moving_object.y
             self.moving_object.x += deltax
@@ -287,22 +292,44 @@ class Main:
             self.paint_graph()
 
     def start_move(self, event):
-        if self.operation == 'create_person':
-            person = Person(x=event.x, y=event.y, color='white', name='Zadaj meno')
-            self.add_person(person)
-        elif self.operation == 'moving':
-            self.moving_object = None
+        if self.operation is None:
+            self.remove_all_focuses()
             for person in self.graph.keys():
                 if person.is_click_in(event):
-                    self.moving_object = person
                     person.focus = not person.focus
                     if person.focus:
                         self.picked.append(person)
                     else:
                         self.picked.remove(person)
+                    break
+        elif self.operation == 'create_person':
+            self.remove_all_focuses()
+            person = Person(x=event.x, y=event.y, color='white', name='Zadaj meno')
+            self.add_person(person)
+        elif self.operation == 'moving':
+            self.remove_all_focuses()
+            self.moving_object = None
+            for person in self.graph.keys():
+                if person.is_click_in(event):
+                    self.moving_object = person
+                    break
+        elif self.operation == 'create_relationship':
+            for person in self.graph.keys():
+                if person.is_click_in(event):
+                    person.focus = not person.focus
+                    if person.focus:
+                        self.picked.append(person)
+                    else:
+                        self.picked.remove(person)
+                    break
+            if len(self.picked) == 2:
+                relation = Relation(color='black', parent=self.picked[0], child=self.picked[1], name='')
+                self.add_relation(relation)
+                self.remove_all_focuses()
         self.paint_graph()
 
     def remove_all_focuses(self):
+        self.picked = []
         for person in self.graph.keys():
             person.focus = False
 
