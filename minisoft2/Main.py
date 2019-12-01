@@ -54,6 +54,12 @@ class Person(Item):
     def draw_info(self, canvas: Canvas):
         super().draw_info(canvas)
 
+        canvas.create_text(30, 110, text='Pozícia X', anchor=NW, fill='blue', font=Main.FONT_STYLE)
+        canvas.create_text(Main.LEFT_WIDTH // 2 + 10, 110, text=str(self.x), anchor=NW, fill='white', font=Main.FONT_STYLE)
+
+        canvas.create_text(30, 140, text='Pozícia y', anchor=NW, fill='blue', font=Main.FONT_STYLE)
+        canvas.create_text(Main.LEFT_WIDTH // 2 + 10, 140, text=str(self.y), anchor=NW, fill='white', font=Main.FONT_STYLE)
+
     def is_click_in(self, event):
         return ((event.x-self.x)**2)/self.a**2 + ((event.y-self.y)**2)/self.b**2 <= 1.0
 
@@ -78,7 +84,31 @@ class Relation(Item):
         super().draw_info(canvas)
 
     def draw_item(self, canvas: Canvas):
-        canvas.create_line(self.parent.x+self.parent.a,self.parent.y,self.child.x-self.child.a,self.child.y,width=3,arrow=LAST,arrowshape=(20,40,10),fill='white')
+        parent_x = self.parent.x
+        parent_y = self.parent.y
+        child_x = self.child.x
+        child_y = self.child.y
+        if parent_x + self.parent.a < child_x - self.child.a:
+            parent_x += self.parent.a
+        elif parent_x - self.parent.a > child_x + self.child.a:
+            parent_x -= self.parent.a
+        else:
+            if parent_y > child_y:
+                parent_y -= self.parent.b
+            else:
+                parent_y += self.parent.b
+
+        if child_x + self.child.a < self.parent.x - self.parent.a:
+            child_x += self.child.a
+        elif child_x - self.child.a > self.parent.x + self.parent.a:
+            child_x -= self.child.a
+        else:
+            if self.parent.y < child_y:
+                child_y -= self.child.b
+            else:
+                child_y += self.child.b
+
+        canvas.create_line(parent_x,parent_y,child_x,child_y,width=3,arrow=LAST,arrowshape=(20,40,10),fill='white')
 
     def load(self, properties: dict):
         self.__init__(properties['color'], properties['parent'], properties['child'], properties['name'])
@@ -290,6 +320,7 @@ class Main:
             self.x = event.x
             self.y = event.y
             self.paint_graph()
+            self.moving_object.draw_info(self.canvas_left)
 
     def start_move(self, event):
         if self.operation is None:
