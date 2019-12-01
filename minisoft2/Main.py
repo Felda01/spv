@@ -26,6 +26,7 @@ class Item:
         self.entry.place(x=Main.LEFT_WIDTH // 2 + 15,y=50)
         self.entry.delete(0,END)
         self.entry.insert(0,self.name)
+        self.entry.focus_set()
         canvas.create_text(30, 50, text='Meno', anchor=NW, fill='green', font=Main.FONT_STYLE)
 
         canvas.create_text(30, 80, text='Farba', anchor=NW, fill='green', font=Main.FONT_STYLE)
@@ -38,6 +39,7 @@ class Person(Item):
         self.y = y
         self.a = 7*len(self.name) # set x-radius
         self.b = 20               # set y-radius
+        self.entry = None
         if uid:
             self.uid = uid
         else:
@@ -79,10 +81,11 @@ class Person(Item):
         return string_properties + ';hash=' + str(hash_properties)
 
     def change(self):
+        if self.entry is not None:
+            self.entry.place_forget()
         if self.s.get() != '':
             self.name = self.s.get()
             self.a = 7 * len(self.name)  # set x-radius
-            self.entry.place_forget()
 
 
 
@@ -229,9 +232,9 @@ class Main:
         self.paint_graph()
 
     def select_file_save(self):
-        filename = filedialog.asksaveasfilename()
-        if filename:
-            self.save(filename)
+        filename = filedialog.asksaveasfile(mode='w', defaultextension=".txt")
+        if filename is not None and filename.name:
+            self.save(filename.name)
 
     def load(self, file_name: str):
         self.graph = dict()
@@ -300,7 +303,6 @@ class Main:
         self.canvas_right.create_image(0,0,image=self.background_right,anchor=NW)
         self.canvas_left.delete('all')
         self.canvas_left.create_image(0, 0, image=self.background_left, anchor=NW)
-        pass
 
     def paint_graph(self):
         self.delete_canvas()
