@@ -13,6 +13,7 @@ class Item:
         self.color = color
         self.focus = False
         self.focus_border_color = '#FF0000'
+        self.s = StringVar()
 
     def draw_item(self, canvas: Canvas):
         pass
@@ -20,13 +21,15 @@ class Item:
     def draw_info(self, canvas: Canvas):
         if not self.focus:
             return
-
+        canvas.bind_all('Key',self.change)
+        self.entry = Entry(master=canvas, text=self.name, font=Main.FONT_STYLE, width=8, textvariable=self.s)
+        self.entry.place(x=Main.LEFT_WIDTH // 2 + 15,y=50)
+        self.entry.delete(0,END)
+        self.entry.insert(0,self.name)
         canvas.create_text(30, 50, text='Meno', anchor=NW, fill='green', font=Main.FONT_STYLE)
-        canvas.create_text(Main.LEFT_WIDTH // 2 + 10, 50, text=self.name, anchor=NW, fill='white', font=Main.FONT_STYLE)
 
-        canvas.create_text(30, 75, text='Farba', anchor=NW, fill='green', font=Main.FONT_STYLE)
-        canvas.create_rectangle(Main.LEFT_WIDTH // 2 + 10, 80, Main.LEFT_WIDTH - 30, 95, fill=self.color, outline='black', width=3)
-
+        canvas.create_text(30, 80, text='Farba', anchor=NW, fill='green', font=Main.FONT_STYLE)
+        canvas.create_rectangle(Main.LEFT_WIDTH // 2 + 10, 85, Main.LEFT_WIDTH - 30, 100, fill=self.color, outline='black', width=3)
 
 class Person(Item):
     def __init__(self, x=0, y=0, color='', name='', uid=''):
@@ -73,6 +76,13 @@ class Person(Item):
 
         return string_properties + ';hash=' + str(hash_properties)
 
+    def change(self):
+        if self.s.get() != '':
+            self.name = self.s.get()
+            self.a = 7 * len(self.name)  # set x-radius
+            self.entry.place_forget()
+
+
 
 class Relation(Item):
     def __init__(self, color='', parent=None, child=None, name=''):
@@ -107,8 +117,11 @@ class Relation(Item):
                 child_y -= self.child.b
             else:
                 child_y += self.child.b
-
-        canvas.create_line(parent_x,parent_y,child_x,child_y,width=3,arrow=LAST,arrowshape=(20,40,10),fill='white')
+        color = self.color
+        if self.focus:
+            color = self.focus_border_color
+        canvas.create_line(parent_x,parent_y,child_x,child_y,width=3,arrow=LAST,arrowshape=(20,40,10),fill=color)
+        canvas.create_text((self.parent.x+self.child.x)/2,(self.parent.y+self.child.y)/2,text=self.name,font=Main.FONT_STYLE,fill='white',angle=-45)
 
     def load(self, properties: dict):
         self.__init__(properties['color'], properties['parent'], properties['child'], properties['name'])
@@ -119,6 +132,16 @@ class Relation(Item):
         hash_properties = hashlib.sha1(string_properties.encode()).hexdigest()
 
         return string_properties + ';hash=' + str(hash_properties)
+
+    def click_distance(self, event):
+        n_vector = (-self.parent.y+self.child.y, self.parent.x - self.child.x)
+        c = -n_vector[0]*self.parent.x-n_vector[1]*self.parent.y
+        return abs((n_vector[0]*event.x+n_vector[1]*event.y+c)/((n_vector[0]**2+n_vector[1]**2)**0.5))
+
+    def change(self):
+        if self.s.get() != '':
+            self.name = self.s.get()
+            self.entry.place_forget()
 
 
 class Main:
@@ -188,6 +211,11 @@ class Main:
         self.paint_graph()
         self.load_colors()
         self.draw_color_picker()
+
+    def change_name(self, event):
+        print(event)
+        for item in self.picked:
+            item.change()
 
     def select_file_load(self):
         filename = filedialog.askopenfilename()
@@ -293,9 +321,11 @@ class Main:
                 y += 50
 
     def set_color(self, color):
-        for person in self.graph.keys():
-            if person.focus:
-                person.color = color
+        for item in self.picked:
+            item.color = color
+            if isinstance(item, Relation):
+                item.focus = False
+                self.picked.remove(item)
         self.paint_graph()
 
     def add_relation(self, relation: Relation):
@@ -325,6 +355,7 @@ class Main:
     def start_move(self, event):
         if self.operation is None:
             self.remove_all_focuses()
+            picked = False
             for person in self.graph.keys():
                 if person.is_click_in(event):
                     person.focus = not person.focus
@@ -332,7 +363,16 @@ class Main:
                         self.picked.append(person)
                     else:
                         self.picked.remove(person)
-                    break
+                    picked = True
+            if not picked:
+                for person in self.graph.keys():
+                    for relation in self.graph[person]:
+                        if relation.click_distance(event) < 15:
+                            relation.focus = not relation.focus
+                            if relation.focus:
+                                self.picked.append(relation)
+                            else:
+                                self.picked.remove(relation)
         elif self.operation == 'create_person':
             self.remove_all_focuses()
             person = Person(x=event.x, y=event.y, color='white', name='Zadaj meno')
@@ -363,6 +403,10 @@ class Main:
         self.picked = []
         for person in self.graph.keys():
             person.focus = False
+            person.change()
+            for relation in self.graph[person]:
+                relation.focus = False
+                relation.change()
 
     def end_move(self, event):
         self.moving_object = None
