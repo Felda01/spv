@@ -1,3 +1,0 @@
-type=person;uid=9b29106b-3c59-4f69-9590-f63d6182c081;name=Vlado;x=100;y=150;color=#00FF00;hash=331e52511bd9a29681915d8d1b828082cbec6b4e
-type=person;uid=8ee8fe15-2d94-437c-82c5-8800ace56114;name=Donald;x=200;y=150;color=#00FF00;hash=ca737f40d37e6224903822cf8330a2d6e181ae55
-type=relation;parent=9b29106b-3c59-4f69-9590-f63d6182c081;child=8ee8fe15-2d94-437c-82c5-8800ace56114;name=brother;color=#00FF00;hash=45351135bbb2e568df8c46239f9eec0bf8cbc51e

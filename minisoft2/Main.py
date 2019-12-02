@@ -269,7 +269,7 @@ class Main:
         self.paint_graph()
 
     def select_file_save(self):
-        filename = filedialog.asksaveasfile(mode='w', defaultextension=".txt")
+        filename = filedialog.asksaveasfile(mode='w', defaultextension=".json")
         if filename is not None and filename.name:
             self.save(filename.name)
 
