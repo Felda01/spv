@@ -155,6 +155,37 @@ class Relation(Item):
             self.entry.place_forget()
 
 
+class Exercise:
+    def __init__(self, story_text='', question='', graph_file='', answers='', uid=''):
+        self.story_text = story_text
+        self.question = question
+        self.graph_file = graph_file
+        self.graph = dict()
+        self.graph['persons'] = dict()
+        self.graph['relations'] = dict()
+        self.answers = []
+        self.uid = uid
+
+    def draw_exercise(self, canvas):
+        pass
+
+
+class Test:
+    def __init__(self, title=''):
+        self.title = title
+        self.exercises = []
+        self.actual_question = 0
+
+    def load(self, file_name):
+        pass
+
+    def save(self, file_name):
+        pass
+
+    def draw_actual_question(self, canvas):
+        pass
+
+
 class Main:
     WINDOW_WIDTH = 1000
     WINDOW_HEIGHT = 750
