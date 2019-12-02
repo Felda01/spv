@@ -5,6 +5,7 @@ import uuid
 import hashlib
 from functools import partial
 import re
+import json
 
 
 class Item:
@@ -14,6 +15,7 @@ class Item:
         self.focus = False
         self.focus_border_color = '#FF0000'
         self.s = StringVar()
+        self.entry = None
 
     def draw_item(self, canvas: Canvas):
         pass
@@ -21,24 +23,25 @@ class Item:
     def draw_info(self, canvas: Canvas):
         if not self.focus:
             return
-        canvas.bind_all('Key',self.change)
+
         self.entry = Entry(master=canvas, text=self.name, font=Main.FONT_STYLE, width=8, textvariable=self.s)
-        self.entry.place(x=Main.LEFT_WIDTH // 2 + 15,y=50)
-        self.entry.delete(0,END)
-        self.entry.insert(0,self.name)
+        self.entry.place(x=Main.LEFT_WIDTH // 2 + 15, y=50)
+        self.entry.delete(0, END)
+        self.entry.insert(0, self.name)
         self.entry.focus_set()
         canvas.create_text(30, 50, text='Meno', anchor=NW, fill='green', font=Main.FONT_STYLE)
 
         canvas.create_text(30, 80, text='Farba', anchor=NW, fill='green', font=Main.FONT_STYLE)
         canvas.create_rectangle(Main.LEFT_WIDTH // 2 + 10, 85, Main.LEFT_WIDTH - 30, 100, fill=self.color, outline='black', width=3)
 
+
 class Person(Item):
     def __init__(self, x=0, y=0, color='', name='', uid=''):
         super().__init__(color, name)
         self.x = x
         self.y = y
-        self.a = 7*len(self.name) # set x-radius
-        self.b = 20               # set y-radius
+        self.a = 7 * len(self.name)  # set x-radius
+        self.b = 20                # set y-radius
         self.entry = None
         if uid:
             self.uid = uid
@@ -71,14 +74,13 @@ class Person(Item):
         return ((event.x-self.x)**2)/self.a**2 + ((event.y-self.y)**2)/self.b**2 <= 1.0
 
     def load(self, properties: dict):
-        self.__init__(int(properties['x']), int(properties['y']), properties['color'], properties['name'])
+        if 'x' not in properties or 'y' not in properties or 'color' not in properties or 'name' not in properties or 'uid' not in properties:
+            return False
+        self.__init__(int(properties['x']), int(properties['y']), properties['color'], properties['name'], properties['uid'])
+        return True
 
     def save(self):
-        string_properties = ';'.join(['type=person', 'uid=' + str(self.uid), 'name=' + self.name, 'x=' + str(self.x),
-                                      'y=' + str(self.y), 'color=' + self.color])
-        hash_properties = hashlib.sha1(string_properties.encode()).hexdigest()
-
-        return string_properties + ';hash=' + str(hash_properties)
+        return '{"uid" : "' + str(self.uid) + '", "x" : "' + str(self.x) + '","y" : "' + str(self.y) + '","name" : "' + self.name + '","color" : "' + self.color + '"}'
 
     def change(self):
         if self.entry is not None:
@@ -88,12 +90,15 @@ class Person(Item):
             self.a = 7 * len(self.name)  # set x-radius
 
 
-
 class Relation(Item):
-    def __init__(self, color='', parent=None, child=None, name=''):
+    def __init__(self, color='', parent=None, child=None, name='', uid=''):
         super().__init__(color, name)
         self.parent = parent
         self.child = child
+        if uid:
+            self.uid = uid
+        else:
+            self.uid = uuid.uuid4()
 
     def draw_info(self, canvas: Canvas):
         canvas.create_text(Main.LEFT_WIDTH // 2, 28, text='VZTAH', fill='green', font=Main.FONT_STYLE)
@@ -127,18 +132,17 @@ class Relation(Item):
         color = self.color
         if self.focus:
             color = self.focus_border_color
-        canvas.create_line(parent_x,parent_y,child_x,child_y,width=3,arrow=LAST,arrowshape=(20,40,10),fill=color)
-        canvas.create_text((self.parent.x+self.child.x)/2,(self.parent.y+self.child.y)/2,text=self.name,font=Main.FONT_STYLE,fill='white',angle=-45)
+        canvas.create_line(parent_x, parent_y, child_x, child_y, width=3, arrow=LAST, arrowshape=(20, 40, 10), fill=color)
+        canvas.create_text((self.parent.x+self.child.x)/2, (self.parent.y+self.child.y)/2, text=self.name, font=Main.FONT_STYLE, fill='white', angle=-45)
 
     def load(self, properties: dict):
-        self.__init__(properties['color'], properties['parent'], properties['child'], properties['name'])
+        if 'color' not in properties or 'parent' not in properties or 'child' not in properties or 'name' not in properties or 'uid' not in properties:
+            return False
+        self.__init__(properties['color'], properties['parent'], properties['child'], properties['name'], properties['uid'])
+        return True
 
     def save(self):
-        string_properties = ';'.join(['type=relation', 'parent=' + str(self.parent.uid), 'child=' + str(self.child.uid),
-                                      'name=' + self.name, 'color=' + self.color])
-        hash_properties = hashlib.sha1(string_properties.encode()).hexdigest()
-
-        return string_properties + ';hash=' + str(hash_properties)
+        return '{"uid" : "' + str(self.uid) + '", "parent" : "' + str(self.parent.uid) + '","child" : "' + str(self.child.uid) + '","name" : "' + self.name + '","color" : "' + self.color + '"}'
 
     def click_distance(self, event):
         n_vector = (-self.parent.y+self.child.y, self.parent.x - self.child.x)
@@ -210,6 +214,8 @@ class Main:
         self.operations['moving'].place(x=10, y=self.RIGHT_HEIGHT - 50)
 
         self.graph = dict()
+        self.graph['persons'] = dict()
+        self.graph['relations'] = dict()
         self.picked = []
         self.moving_object = None
         self.operation = None
@@ -237,63 +243,49 @@ class Main:
             self.save(filename.name)
 
     def load(self, file_name: str):
-        self.graph = dict()
         if os.path.isfile(file_name):
             with open(file_name, 'r') as file:
-                row = file.readline().strip()
+                loaded_graph_json = file.read()
+                graph_data = json.loads(loaded_graph_json)
                 uid_persons = dict()
-                while row != '':
-                    row_items = row.split(';')
-                    properties = dict()
-                    old_row_hash = ''
-                    for item in row_items:
-                        key, value = item.split('=')
-                        if key == 'hash':
-                            old_row_hash = value
-                        else:
-                            properties[key] = value
 
-                    string_properties = ';'.join("{s}={r}".format(s=key, r=value) for (key, value) in properties.items())
-                    current_row_hash = hashlib.sha1(string_properties.encode()).hexdigest()
-                    if str(old_row_hash) != str(current_row_hash):
-                        row = file.readline().strip()
-                        continue
-
-                    if properties['type'] == 'person':
-                        person = Person()
-                        person.load(properties)
-                        uid_persons[str(properties['uid'])] = person
+                for person_data in graph_data['persons']:
+                    person = Person()
+                    correct = person.load(person_data)
+                    if correct:
+                        uid_persons[str(person_data['uid'])] = person
                         self.add_person(person)
 
-                    if properties['type'] == 'relation':
-                        relation = Relation()
-                        if uid_persons[str(properties['parent'])] and uid_persons[str(properties['child'])]:
-                            properties['parent'] = uid_persons[str(properties['parent'])]
-                            properties['child'] = uid_persons[str(properties['child'])]
-                            relation.load(properties)
+                for relation_data in graph_data['relations']:
+                    relation = Relation()
+                    if uid_persons[str(relation_data['parent'])] and uid_persons[str(relation_data['child'])]:
+                        relation_data['parent'] = uid_persons[str(relation_data['parent'])]
+                        relation_data['child'] = uid_persons[str(relation_data['child'])]
+                        correct = relation.load(relation_data)
+                        if correct:
                             self.add_relation(relation)
-                        else:
-                            row = file.readline().strip()
-                            continue
-                    row = file.readline().strip()
 
     def save(self, file_name: str):
-        persons = set()
-        relations = set()
-
-        for person in self.graph:
-            persons.add(person)
-            person_relations = self.graph[person]
-            for relation in person_relations:
-                relations.add(relation)
-
         if os.path.isfile(file_name):
             with open(file_name, 'w') as file:
-                for person in persons:
-                    file.write(person.save() + '\n')
+                result_json = '{"persons": ['
 
-                for relation in relations:
-                    file.write(relation.save() + '\n')
+                i = 0
+                for person_uid in self.graph['persons']:
+                    if i != 0:
+                        result_json += ','
+                    result_json += self.graph['persons'][person_uid].save()
+                    i += 1
+                result_json += '], "relations" : ['
+
+                i = 0
+                for relation_uid in self.graph['relations']:
+                    if i != 0:
+                        result_json += ','
+                    result_json += self.graph['relations'][relation_uid].save()
+                    i += 1
+                result_json += ']}'
+                file.write(result_json)
 
     def export(self):
         pass
@@ -306,10 +298,10 @@ class Main:
 
     def paint_graph(self):
         self.delete_canvas()
-        for person in self.graph.keys():
-            for relation in self.graph[person]:
-                relation.draw_item(self.canvas_right)
-            person.draw_item(self.canvas_right)
+        for person_uid in self.graph['persons']:
+            self.graph['persons'][person_uid].draw_item(self.canvas_right)
+        for relation_uid in self.graph['relations']:
+            self.graph['relations'][relation_uid].draw_item(self.canvas_right)
 
         if len(self.picked) > 0:
             self.picked[-1].draw_info(self.canvas_left)
@@ -335,15 +327,12 @@ class Main:
         self.paint_graph()
 
     def add_relation(self, relation: Relation):
-        if relation.parent in self.graph and relation.child in self.graph:
-            if relation not in self.graph[relation.parent]:
-                self.graph[relation.parent].append(relation)
-            # if relation not in self.graph[relation.child]:
-            #     self.graph[relation.child].append(relation)
+        if relation.uid not in self.graph['relations']:
+            self.graph['relations'][str(relation.uid)] = relation
 
     def add_person(self, person: Person):
-        if person not in self.graph:
-            self.graph[person] = list()
+        if person.uid not in self.graph['persons']:
+            self.graph['persons'][str(person.uid)] = person
 
     def move(self, event):
         if self.moving_object is not None:
@@ -362,7 +351,8 @@ class Main:
         if self.operation is None:
             self.remove_all_focuses()
             picked = False
-            for person in self.graph.keys():
+            for person_uid in self.graph['persons']:
+                person = self.graph['persons'][person_uid]
                 if person.is_click_in(event):
                     person.focus = not person.focus
                     if person.focus:
@@ -372,15 +362,15 @@ class Main:
                             self.picked.remove(person)
                     picked = True
             if not picked:
-                for person in self.graph.keys():
-                    for relation in self.graph[person]:
-                        if relation.click_distance(event) < 15:
-                            relation.focus = not relation.focus
-                            if relation.focus:
-                                self.picked.append(relation)
-                            else:
-                                if relation in self.picked:
-                                    self.picked.remove(relation)
+                for relation_uid in self.graph['relations']:
+                    relation = self.graph['relations'][relation_uid]
+                    if relation.click_distance(event) < 15:
+                        relation.focus = not relation.focus
+                        if relation.focus:
+                            self.picked.append(relation)
+                        else:
+                            if relation in self.picked:
+                                self.picked.remove(relation)
         elif self.operation == 'create_person':
             self.remove_all_focuses()
             person = Person(x=event.x, y=event.y, color='white', name='Zadaj meno')
@@ -388,12 +378,14 @@ class Main:
         elif self.operation == 'moving':
             self.remove_all_focuses()
             self.moving_object = None
-            for person in self.graph.keys():
+            for person_uid in self.graph['persons']:
+                person = self.graph['persons'][person_uid]
                 if person.is_click_in(event):
                     self.moving_object = person
                     break
         elif self.operation == 'create_relationship':
-            for person in self.graph.keys():
+            for person_uid in self.graph['persons']:
+                person = self.graph['persons'][person_uid]
                 if person.is_click_in(event):
                     person.focus = not person.focus
                     if person.focus:
@@ -410,12 +402,14 @@ class Main:
 
     def remove_all_focuses(self):
         self.picked = []
-        for person in self.graph.keys():
+        for person_uid in self.graph['persons']:
+            person = self.graph['persons'][person_uid]
             person.focus = False
             person.change()
-            for relation in self.graph[person]:
-                relation.focus = False
-                relation.change()
+        for relation_uid in self.graph['relations']:
+            relation = self.graph['relations'][relation_uid]
+            relation.focus = False
+            relation.change()
 
     def end_move(self, event):
         self.moving_object = None
