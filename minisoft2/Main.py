@@ -105,6 +105,9 @@ class Relation(Item):
 
         super().draw_info(canvas)
 
+    def switch(self):
+        self.parent, self.child = self.child, self.parent
+
     def draw_item(self, canvas: Canvas):
         parent_x = self.parent.x
         parent_y = self.parent.y
@@ -133,7 +136,7 @@ class Relation(Item):
         if self.focus:
             color = self.focus_border_color
         canvas.create_line(parent_x, parent_y, child_x, child_y, width=3, arrow=LAST, arrowshape=(20, 40, 10), fill=color)
-        canvas.create_text((self.parent.x+self.child.x)/2, (self.parent.y+self.child.y)/2, text=self.name, font=Main.FONT_STYLE, fill='white', angle=-45)
+        canvas.create_text((self.parent.x+self.child.x)/2, (self.parent.y+self.child.y)/2, text=self.name, font=Main.FONT_STYLE, fill='crimson', angle=-45)
 
     def load(self, properties: dict):
         if 'color' not in properties or 'parent' not in properties or 'child' not in properties or 'name' not in properties or 'uid' not in properties:
@@ -233,6 +236,8 @@ class Main:
         b.place(x=120, y=13)
         b = Button(self.canvas_top, text='Obrázok', command=self.export)
         b.place(x=217, y=13)
+        self.switch_btn = Button(self.canvas_left, text='Vymeň', command=self.switch)
+        self.switch_btn.place(x=self.LEFT_WIDTH - 80, y=230)
         self.operations = dict()
         self.operations['create_person'] = Button(master=self.canvas_right, text='Pridaj osobu', width=12,
                                                   command=partial(self.set_operation, 'create_person'), bg='white')
@@ -257,9 +262,14 @@ class Main:
         self.draw_color_picker()
 
     def change_name(self, event):
-        print(event)
         for item in self.picked:
             item.change()
+
+    def switch(self):
+        for item in self.picked:
+            if isinstance(item, Relation):
+                item.switch()
+        self.paint_graph()
 
     def select_file_load(self):
         filename = filedialog.askopenfilename()

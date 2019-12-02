@@ -1,0 +1,16 @@
+Vianoce sú pred dverami a Bart a Lisa ukazujú rodičom ich list so želaniami.
+Označ Barta a Lisu.
+simpsons.json
+
+Maggie taktiež niečo chce a preto sa snaží ukázať rodičom čo.
+Označ rodičov Maggie, nech vie komu má ukazovať.
+simpsons.json
+
+Každý chlap v rodine Simsponovcov by chcel tetovanie.
+Kto sú chlapi v rodine?
+simpsons.json
+
+Samozrejme ženy sú proti, a spájajú sa proti nim.
+Označ ženy v rodine Simpsonovcov.
+simpsons.json
+
