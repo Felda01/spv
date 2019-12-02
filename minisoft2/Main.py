@@ -148,6 +148,8 @@ class Relation(Item):
         return '{"uid" : "' + str(self.uid) + '", "parent" : "' + str(self.parent.uid) + '","child" : "' + str(self.child.uid) + '","name" : "' + self.name + '","color" : "' + self.color + '"}'
 
     def click_distance(self, event):
+        if min(self.parent.x, self.child.x) > event.x or max(self.parent.x, self.child.x) < event.x or min(self.parent.y, self.child.y) > event.y or max(self.parent.y, self.child.y) < event.y:
+            return 1000
         n_vector = (-self.parent.y+self.child.y, self.parent.x - self.child.x)
         c = -n_vector[0]*self.parent.x-n_vector[1]*self.parent.y
         return abs((n_vector[0]*event.x+n_vector[1]*event.y+c)/((n_vector[0]**2+n_vector[1]**2)**0.5))
@@ -172,7 +174,8 @@ class Exercise:
             self.load_graph()
 
     def draw_exercise(self, canvas):
-        pass
+        w = Message(canvas, text=self.story_text, bg='black', fill='white')
+        w.place(x=30,y=80)
 
     def load_graph(self):
         if os.path.isfile(self.graph_file):
@@ -254,35 +257,15 @@ class Main:
         self.canvas_right = Canvas(self.frame, width=self.RIGHT_WIDTH, height=self.RIGHT_HEIGHT)
         self.canvas_right.pack(side=RIGHT, expand=False)
 
-        # BINDINGS
-        self.canvas_right.bind('<B1-Motion>', self.move)
-        self.canvas_right.bind('<ButtonPress-1>', self.start_move)
-        self.canvas_right.bind('<ButtonRelease-1>', self.end_move)
-
         # IMAGES
         self.background_right = PhotoImage(file='images/background.png')
         self.background_left = PhotoImage(file='images/background_left.png')
 
-        # BUTTONS
-        b = Button(self.canvas_top, text='Načítaj rodostrom', command=self.select_file_load)
-        b.place(x=10, y=13)
-        b = Button(self.canvas_top, text='Ulož rodostrom', command=self.select_file_save)
-        b.place(x=120, y=13)
-        b = Button(self.canvas_top, text='Obrázok', command=self.export)
-        b.place(x=217, y=13)
-        self.switch_btn = Button(self.canvas_left, text='Vymeň', command=self.switch)
-        self.switch_btn.place(x=self.LEFT_WIDTH - 80, y=230)
-        self.operations = dict()
-        self.operations['create_person'] = Button(master=self.canvas_right, text='Pridaj osobu', width=12,
-                                                  command=partial(self.set_operation, 'create_person'), bg='white')
-        self.operations['create_person'].place(x=10, y=self.RIGHT_HEIGHT - 150)
-        self.operations['create_relationship'] = Button(master=self.canvas_right, text='pridaj vztah', width=12,
-                                                        command=partial(self.set_operation, 'create_relationship'), bg='white')
-        self.operations['create_relationship'].place(x=10, y=self.RIGHT_HEIGHT - 100)
-        self.operations['moving'] = Button(master=self.canvas_right, text='posuvaj osobu', width=12,
-                                           command=partial(self.set_operation, 'moving'), bg='white')
-        self.operations['moving'].place(x=10, y=self.RIGHT_HEIGHT - 50)
+        # BINDINGS
+        self.canvas_right.bind('<ButtonPress-1>', self.start_move)
+        self.canvas_right.bind('<ButtonRelease-1>', self.end_move)
 
+        # INITIALIZATION
         self.graph = dict()
         self.graph['persons'] = dict()
         self.graph['relations'] = dict()
@@ -290,10 +273,43 @@ class Main:
         self.moving_object = None
         self.operation = None
         self.colors = []
+        self.mode = ''
 
+        self.init_for_testing()
         self.paint_graph()
         self.load_colors()
         self.draw_color_picker()
+
+    def init_for_creating(self):
+        self.mode = 'creating'
+        # BINDINGS
+        self.canvas_right.bind('<B1-Motion>', self.move)
+
+        # BUTTONS
+        self.switch_btn = Button(self.canvas_left, text='Vymeň', command=self.switch)
+        self.switch_btn.place(x=self.LEFT_WIDTH - 80, y=230)
+        self.operations = dict()
+        self.operations['create_person'] = Button(master=self.canvas_right, text='Pridaj osobu', width=12,
+                                                  command=partial(self.set_operation, 'create_person'), bg='white')
+        self.operations['create_person'].place(x=10, y=self.RIGHT_HEIGHT - 150)
+        self.operations['create_relationship'] = Button(master=self.canvas_right, text='pridaj vztah', width=12,
+                                                        command=partial(self.set_operation, 'create_relationship'),
+                                                        bg='white')
+        self.operations['create_relationship'].place(x=10, y=self.RIGHT_HEIGHT - 100)
+        self.operations['moving'] = Button(master=self.canvas_right, text='posuvaj osobu', width=12,
+                                           command=partial(self.set_operation, 'moving'), bg='white')
+        self.operations['moving'].place(x=10, y=self.RIGHT_HEIGHT - 50)
+        b = Button(self.canvas_top, text='Načítaj rodostrom', command=self.select_file_load)
+        b.place(x=10, y=13)
+        b = Button(self.canvas_top, text='Ulož rodostrom', command=self.select_file_save)
+        b.place(x=120, y=13)
+        b = Button(self.canvas_top, text='Obrázok', command=self.export)
+        b.place(x=217, y=13)
+
+    def init_for_testing(self):
+        self.mode = 'testing'
+        b = Button(self.canvas_top, text='Načítaj pribeh', command=self.select_file_load)
+        b.place(x=10, y=13)
 
     def switch(self):
         for item in self.picked:
@@ -374,7 +390,7 @@ class Main:
         for relation_uid in self.graph['relations']:
             self.graph['relations'][relation_uid].draw_item(self.canvas_right)
 
-        if len(self.picked) > 0:
+        if self.mode == 'creating' and len(self.picked) > 0:
             self.picked[-1].draw_info(self.canvas_left)
 
     def draw_color_picker(self):
@@ -419,10 +435,7 @@ class Main:
             self.moving_object.draw_info(self.canvas_left)
 
     def start_move(self, event):
-        for item in self.picked:
-            item.change()
-        if self.operation is None:
-            self.remove_all_focuses()
+        if self.mode == 'testing':
             picked = False
             for person_uid in self.graph['persons']:
                 person = self.graph['persons'][person_uid]
@@ -444,33 +457,59 @@ class Main:
                         else:
                             if relation in self.picked:
                                 self.picked.remove(relation)
-        elif self.operation == 'create_person':
-            self.remove_all_focuses()
-            person = Person(x=event.x, y=event.y, color='white', name='Zadaj meno')
-            self.add_person(person)
-        elif self.operation == 'moving':
-            self.remove_all_focuses()
-            self.moving_object = None
-            for person_uid in self.graph['persons']:
-                person = self.graph['persons'][person_uid]
-                if person.is_click_in(event):
-                    self.moving_object = person
-                    break
-        elif self.operation == 'create_relationship':
-            for person_uid in self.graph['persons']:
-                person = self.graph['persons'][person_uid]
-                if person.is_click_in(event):
-                    person.focus = not person.focus
-                    if person.focus:
-                        self.picked.append(person)
-                    else:
-                        if person in self.picked:
-                            self.picked.remove(person)
-                    break
-            if len(self.picked) == 2:
-                relation = Relation(color='black', parent=self.picked[0], child=self.picked[1], name='')
-                self.add_relation(relation)
+        else:
+            for item in self.picked:
+                item.change()
+            if self.operation is None:
                 self.remove_all_focuses()
+                picked = False
+                for person_uid in self.graph['persons']:
+                    person = self.graph['persons'][person_uid]
+                    if person.is_click_in(event):
+                        person.focus = not person.focus
+                        if person.focus:
+                            self.picked.append(person)
+                        else:
+                            if person in self.picked:
+                                self.picked.remove(person)
+                        picked = True
+                if not picked:
+                    for relation_uid in self.graph['relations']:
+                        relation = self.graph['relations'][relation_uid]
+                        if relation.click_distance(event) < 15:
+                            relation.focus = not relation.focus
+                            if relation.focus:
+                                self.picked.append(relation)
+                            else:
+                                if relation in self.picked:
+                                    self.picked.remove(relation)
+            elif self.operation == 'create_person':
+                self.remove_all_focuses()
+                person = Person(x=event.x, y=event.y, color='white', name='Zadaj meno')
+                self.add_person(person)
+            elif self.operation == 'moving':
+                self.remove_all_focuses()
+                self.moving_object = None
+                for person_uid in self.graph['persons']:
+                    person = self.graph['persons'][person_uid]
+                    if person.is_click_in(event):
+                        self.moving_object = person
+                        break
+            elif self.operation == 'create_relationship':
+                for person_uid in self.graph['persons']:
+                    person = self.graph['persons'][person_uid]
+                    if person.is_click_in(event):
+                        person.focus = not person.focus
+                        if person.focus:
+                            self.picked.append(person)
+                        else:
+                            if person in self.picked:
+                                self.picked.remove(person)
+                        break
+                if len(self.picked) == 2:
+                    relation = Relation(color='black', parent=self.picked[0], child=self.picked[1], name='')
+                    self.add_relation(relation)
+                    self.remove_all_focuses()
         self.paint_graph()
 
     def remove_all_focuses(self):
