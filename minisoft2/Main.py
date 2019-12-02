@@ -168,9 +168,42 @@ class Exercise:
         self.graph['relations'] = dict()
         self.answers = []
         self.uid = uid
+        if self.graph_file != '':
+            self.load_graph()
 
     def draw_exercise(self, canvas):
         pass
+
+    def load_graph(self):
+        if os.path.isfile(self.graph_file):
+            with open(self.graph_file, 'r') as file:
+                loaded_graph_json = file.read()
+                graph_data = json.loads(loaded_graph_json)
+                uid_persons = dict()
+
+                for person_data in graph_data['persons']:
+                    person = Person()
+                    correct = person.load(person_data)
+                    if correct:
+                        uid_persons[str(person_data['uid'])] = person
+                        self.add_person(person)
+
+                for relation_data in graph_data['relations']:
+                    relation = Relation()
+                    if uid_persons[str(relation_data['parent'])] and uid_persons[str(relation_data['child'])]:
+                        relation_data['parent'] = uid_persons[str(relation_data['parent'])]
+                        relation_data['child'] = uid_persons[str(relation_data['child'])]
+                        correct = relation.load(relation_data)
+                        if correct:
+                            self.add_relation(relation)
+
+    def add_relation(self, relation: Relation):
+        if relation.uid not in self.graph['relations']:
+            self.graph['relations'][str(relation.uid)] = relation
+
+    def add_person(self, person: Person):
+        if person.uid not in self.graph['persons']:
+            self.graph['persons'][str(person.uid)] = person
 
 
 class Test:
@@ -185,8 +218,9 @@ class Test:
     def save(self, file_name):
         pass
 
-    def draw_actual_question(self, canvas):
-        pass
+    def start_question(self, canvas):
+        self.exercises[self.actual_question].draw_exercise(canvas)
+        return self.exercises[self.actual_question].graph
 
 
 class Main:
@@ -260,10 +294,6 @@ class Main:
         self.paint_graph()
         self.load_colors()
         self.draw_color_picker()
-
-    def change_name(self, event):
-        for item in self.picked:
-            item.change()
 
     def switch(self):
         for item in self.picked:
@@ -389,6 +419,8 @@ class Main:
             self.moving_object.draw_info(self.canvas_left)
 
     def start_move(self, event):
+        for item in self.picked:
+            item.change()
         if self.operation is None:
             self.remove_all_focuses()
             picked = False
