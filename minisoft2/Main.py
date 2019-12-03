@@ -215,8 +215,13 @@ class Exercise:
         if person.uid not in self.graph['persons']:
             self.graph['persons'][str(person.uid)] = person
 
-    def load(self):
-        pass
+    def load(self, properties):
+        if 'uid' not in properties or 'story_text' not in properties or 'question' not in properties or 'graph_file' not in properties or 'answers' not in properties:
+            return False
+        answers = []
+        for answer in properties['answers']:
+            answers.append(answer)
+        self.__init__(properties['story_text'], properties['question'], properties['graph_file'], answers, properties['uid'])
 
     def save(self):
         def get_answers(answers):
@@ -240,8 +245,19 @@ class Test:
         self.actual_question = 0
         self.mode = 'testing'
 
-    def load(self, file_name):
-        pass
+    def load(self, file_name: str):
+        if os.path.isfile(file_name):
+            with open(file_name, 'r') as file:
+                loaded_test_json = file.read()
+                test_data = json.loads(loaded_test_json)
+                if 'title' in test_data:
+                    self.title = test_data['title']
+                if 'exercises' in test_data:
+                    for exercise_data in test_data['exercises']:
+                        exercise = Exercise()
+                        correct = exercise.load(exercise_data)
+                        if correct:
+                            self.exercises.append(exercise)
 
     def save(self, file_name):
         with open(file_name, 'w') as file:
