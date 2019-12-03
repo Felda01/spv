@@ -214,6 +214,10 @@ class Test:
         self.title = title
         self.exercises = []
         self.actual_question = 0
+        if self.title == '':
+            self.mode = 'creating'
+        else:
+            self.mode = 'testing'
 
     def load(self, file_name):
         pass
@@ -222,8 +226,9 @@ class Test:
         pass
 
     def start_question(self, canvas):
-        self.exercises[self.actual_question].draw_exercise(canvas)
-        return self.exercises[self.actual_question].graph
+        if self.mode == 'testing':
+            self.exercises[self.actual_question].draw_exercise(canvas)
+            return self.exercises[self.actual_question].graph
 
 
 class Main:
@@ -249,8 +254,7 @@ class Main:
         self.canvas_top = Canvas(self.frame, width=self.TOP_WIDTH, height=self.TOP_HEIGHT, bg='green')
         self.canvas_top.pack(side=TOP, expand=False)
         # LEFT
-        self.canvas_left = Canvas(self.frame, width=self.LEFT_WIDTH, height=self.LEFT_HEIGHT,
-                                  scrollregion=(0, 0, self.LEFT_WIDTH, self.LEFT_HEIGHT))
+        self.canvas_left = Canvas(self.frame, width=self.LEFT_WIDTH, height=self.LEFT_HEIGHT)
         self.canvas_left.pack(side=LEFT, expand=False)
 
         # RIGHT
@@ -274,20 +278,24 @@ class Main:
         self.operation = None
         self.colors = []
         self.mode = ''
+        self.buttons = []
 
-        self.init_for_testing()
-        self.paint_graph()
         self.load_colors()
-        self.draw_color_picker()
+        self.init_for_creating()
+        self.paint_graph()
 
     def init_for_creating(self):
         self.mode = 'creating'
+        for button in self.buttons:
+            button.place_forget()
+        self.buttons = []
         # BINDINGS
         self.canvas_right.bind('<B1-Motion>', self.move)
 
         # BUTTONS
-        self.switch_btn = Button(self.canvas_left, text='Vymeň', command=self.switch)
-        self.switch_btn.place(x=self.LEFT_WIDTH - 80, y=230)
+        switch_btn = Button(self.canvas_left, text='Vymeň', command=self.switch)
+        switch_btn.place(x=self.LEFT_WIDTH - 80, y=230)
+        self.buttons.append(switch_btn)
         self.operations = dict()
         self.operations['create_person'] = Button(master=self.canvas_right, text='Pridaj osobu', width=12,
                                                   command=partial(self.set_operation, 'create_person'), bg='white')
@@ -301,15 +309,32 @@ class Main:
         self.operations['moving'].place(x=10, y=self.RIGHT_HEIGHT - 50)
         b = Button(self.canvas_top, text='Načítaj rodostrom', command=self.select_file_load)
         b.place(x=10, y=13)
+        self.buttons.append(b)
         b = Button(self.canvas_top, text='Ulož rodostrom', command=self.select_file_save)
         b.place(x=120, y=13)
+        self.buttons.append(b)
         b = Button(self.canvas_top, text='Obrázok', command=self.export)
         b.place(x=217, y=13)
+        self.buttons.append(b)
+        b = Button(self.canvas_top, text='Testovaci rezim', command=self.init_for_testing)
+        b.place(x=300, y=13)
+        self.buttons.append(b)
+        self.draw_color_picker()
+        self.delete_canvas()
 
     def init_for_testing(self):
         self.mode = 'testing'
+        for button in self.buttons + list(self.operations.values()):
+            button.place_forget()
+        self.buttons = []
+        self.canvas_right.unbind('<B1-Motion>')
         b = Button(self.canvas_top, text='Načítaj pribeh', command=self.select_file_load)
         b.place(x=10, y=13)
+        self.buttons.append(b)
+        b = Button(self.canvas_top, text='Tvoriaci režim', command=self.init_for_creating)
+        b.place(x=100, y=13)
+        self.buttons.append(b)
+        self.delete_canvas()
 
     def switch(self):
         for item in self.picked:
@@ -400,6 +425,7 @@ class Main:
         for color in self.colors:
             btn = Button(master=self.canvas_left, command=partial(self.set_color, color), bg=color, width=5, height=2)
             btn.place(x=x, y=y)
+            self.buttons.append(btn)
             x += 50
             if x + 50 >= self.LEFT_WIDTH:
                 x = 25
@@ -408,9 +434,9 @@ class Main:
     def set_color(self, color):
         for item in self.picked:
             item.color = color
-            if isinstance(item, Relation):
-                item.focus = False
-                self.picked.remove(item)
+            item.focus = False
+            self.picked.remove(item)
+            item.change()
         self.paint_graph()
 
     def add_relation(self, relation: Relation):
