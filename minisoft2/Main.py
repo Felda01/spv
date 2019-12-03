@@ -177,16 +177,18 @@ class Exercise:
             self.uid = uid
         else:
             self.uid = uuid.uuid4()
-        # if self.graph_file != '':
-        #     self.load_graph()
+        if self.graph_file != '':
+            self.load_graph()
 
     def draw_exercise(self, canvas):
-        w = Message(canvas, text=self.story_text, bg='green', fill='white')
-        w.place(x=30,y=80)
+        w = Message(canvas, text=self.story_text, bg='white', width=180, font=Main.FONT_STYLE)
+        w.place(x=30,y=50)
+        w = Message(canvas, text=self.question, bg='white', width=180, font=Main.FONT_STYLE)
+        w.place(x=30, y=230)
 
     def load_graph(self):
         if os.path.isfile(self.graph_file):
-            with open(self.graph_file, 'r') as file:
+            with open(self.graph_file, 'r', encoding='utf8') as file:
                 loaded_graph_json = file.read()
                 graph_data = json.loads(loaded_graph_json)
                 uid_persons = dict()
@@ -222,6 +224,7 @@ class Exercise:
         for answer in properties['answers']:
             answers.append(answer)
         self.__init__(properties['story_text'], properties['question'], properties['graph_file'], answers, properties['uid'])
+        return True
 
     def save(self):
         def get_answers(answers):
@@ -247,7 +250,7 @@ class Test:
 
     def load(self, file_name: str):
         if os.path.isfile(file_name):
-            with open(file_name, 'r') as file:
+            with open(file_name, 'r', encoding='utf8') as file:
                 loaded_test_json = file.read()
                 test_data = json.loads(loaded_test_json)
                 if 'title' in test_data:
@@ -260,7 +263,7 @@ class Test:
                             self.exercises.append(exercise)
 
     def save(self, file_name):
-        with open(file_name, 'w') as file:
+        with open(file_name, 'w', encoding='utf8') as file:
             result_json = '{"title": "' + self.title + '", "exercises": ['
             result_json += ','.join([exercise.save() for exercise in self.exercises])
             result_json += ']}'
@@ -387,10 +390,10 @@ class Main:
         b = Button(self.canvas_top, text='Tvoriaci režim', command=self.init_for_creating)
         b.place(x=100, y=13)
         self.buttons.append(b)
-        b = Button(self.canvas_left, text='<', command=self.next_question, font=Main.FONT_STYLE)
+        b = Button(self.canvas_left, text='<', command=self.previouse_question, font=Main.FONT_STYLE)
         b.place(x=Main.LEFT_WIDTH // 2 - 45, y=Main.LEFT_HEIGHT // 2)
         self.buttons.append(b)
-        b = Button(self.canvas_left, text='>', command=self.previouse_question, font=Main.FONT_STYLE)
+        b = Button(self.canvas_left, text='>', command=self.next_question, font=Main.FONT_STYLE)
         b.place(x=Main.LEFT_WIDTH // 2 + 20, y=Main.LEFT_HEIGHT // 2)
         self.buttons.append(b)
         self.delete_canvas()
@@ -433,7 +436,7 @@ class Main:
 
     def load(self, file_name: str):
         if os.path.isfile(file_name):
-            with open(file_name, 'r') as file:
+            with open(file_name, 'r', encoding='utf8') as file:
                 loaded_graph_json = file.read()
                 graph_data = json.loads(loaded_graph_json)
                 uid_persons = dict()
@@ -456,7 +459,7 @@ class Main:
 
     def save(self, file_name: str):
         if os.path.isfile(file_name):
-            with open(file_name, 'w') as file:
+            with open(file_name, 'w', encoding='utf8') as file:
                 result_json = '{"persons": ['
 
                 result_json += ','.join([self.graph['persons'][person_uid].save() for person_uid in self.graph['persons']])
@@ -626,7 +629,7 @@ class Main:
     def load_colors(self):
         self.colors = []
         if os.path.isfile(self.CONFIG_COLORS_FILE):
-            with open(self.CONFIG_COLORS_FILE, 'r') as file:
+            with open(self.CONFIG_COLORS_FILE, 'r', encoding='utf8') as file:
                 row = file.readline().strip()
                 while row != '':
                     match = re.search(r'^#(?:[0-9a-fA-F]{3}){1,2}$', row)
@@ -653,8 +656,11 @@ class Main:
 if __name__ == '__main__':
     m = Main()
     m.window.mainloop()
-    # e = Exercise('Story text', 'Question', './Graphs/simpsons.json', ['acf51105-c6d1-484f-8bf6-aa65cd6dbd42'])
-    # t = Test('Title')
+    # e = Exercise('Vianoce sú pred dverami a Bart a Lisa ukazujú rodičom ich list so želaniami.', 'Označ Barta a Lisu.', './Graphs/simpsons.json', ['acf51105-c6d1-484f-8bf6-aa65cd6dbd42'])
+    # t = Test('Vianoce u Simpsonovcov')
+    # t.exercises.append(e)
+    # e = Exercise('Maggie taktiež niečo chce a preto sa snaží ukázať rodičom čo.', 'Označ rodičov Maggie, nech vie komu má ukazovať.',
+    #              './Graphs/simpsons.json', ['acf51105-c6d1-484f-8bf6-aa65cd6dbd42'])
     # t.exercises.append(e)
     # t.save('./tests/simpson.json')
 
