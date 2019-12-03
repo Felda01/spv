@@ -2,7 +2,6 @@ from tkinter import *
 from tkinter import filedialog
 import os
 import uuid
-import hashlib
 from functools import partial
 import re
 import json
@@ -161,18 +160,25 @@ class Relation(Item):
 
 
 class Exercise:
-    def __init__(self, story_text='', question='', graph_file='', answers='', uid=''):
+    def __init__(self, story_text='', question='', graph_file='', answers=None, uid=''):
         self.story_text = story_text
         self.question = question
         self.graph_file = graph_file
         self.graph = dict()
         self.graph['persons'] = dict()
         self.graph['relations'] = dict()
-        self.answers = set()
-        self.user_answers = set()
-        self.uid = uid
-        if self.graph_file != '':
-            self.load_graph()
+
+        if answers:
+            self.answers = answers
+        else:
+            self.answers = set()
+
+        if uid:
+            self.uid = uid
+        else:
+            self.uid = uuid.uuid4()
+        # if self.graph_file != '':
+        #     self.load_graph()
 
     def draw_exercise(self, canvas):
         w = Message(canvas, text=self.story_text, bg='green', fill='white')
@@ -209,6 +215,23 @@ class Exercise:
         if person.uid not in self.graph['persons']:
             self.graph['persons'][str(person.uid)] = person
 
+    def load(self):
+        pass
+
+    def save(self):
+        def get_answers(answers):
+            result = '['
+            i = 0
+            for answer in answers:
+                if i != 0:
+                    result += ','
+                result += '"' + str(answer) + '"'
+                i += 1
+            result += ']'
+            return result
+
+        return '{"uid" : "' + str(self.uid) + '", "story_text" : "' + self.story_text + '","question" : "' + self.question + '","graph_file" : "' + str(self.graph_file) + '","answers" : ' + get_answers(self.answers) + '}'
+
 
 class Test:
     def __init__(self, title=''):
@@ -221,7 +244,11 @@ class Test:
         pass
 
     def save(self, file_name):
-        pass
+        with open(file_name, 'w') as file:
+            result_json = '{"title": "' + self.title + '", "exercises": ['
+            result_json += ','.join([exercise.save() for exercise in self.exercises])
+            result_json += ']}'
+            file.write(result_json)
 
     def get_question(self, canvas):
         if self.mode == 'testing' and len(self.exercises) > 0:
@@ -416,21 +443,12 @@ class Main:
             with open(file_name, 'w') as file:
                 result_json = '{"persons": ['
 
-                i = 0
-                for person_uid in self.graph['persons']:
-                    if i != 0:
-                        result_json += ','
-                    result_json += self.graph['persons'][person_uid].save()
-                    i += 1
+                result_json += ','.join([self.graph['persons'][person_uid].save() for person_uid in self.graph['persons']])
                 result_json += '], "relations" : ['
 
-                i = 0
-                for relation_uid in self.graph['relations']:
-                    if i != 0:
-                        result_json += ','
-                    result_json += self.graph['relations'][relation_uid].save()
-                    i += 1
+                result_json += ','.join([self.graph['relations'][relation_uid].save() for relation_uid in self.graph['relations']])
                 result_json += ']}'
+
                 file.write(result_json)
 
     def export(self):
@@ -619,3 +637,8 @@ class Main:
 if __name__ == '__main__':
     m = Main()
     m.window.mainloop()
+    # e = Exercise('Story text', 'Question', './Graphs/simpsons.json', ['acf51105-c6d1-484f-8bf6-aa65cd6dbd42'])
+    # t = Test('Title')
+    # t.exercises.append(e)
+    # t.save('./tests/simpson.json')
+
