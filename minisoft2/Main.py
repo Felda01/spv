@@ -41,7 +41,7 @@ class Person(Item):
         self.x = x
         self.y = y
         self.a = 7 * len(self.name)  # set x-radius
-        self.b = 20                # set y-radius
+        self.b = 20                  # set y-radius
         self.entry = None
         if uid:
             self.uid = uid
@@ -168,13 +168,14 @@ class Exercise:
         self.graph = dict()
         self.graph['persons'] = dict()
         self.graph['relations'] = dict()
-        self.answers = []
+        self.answers = set()
+        self.user_answers = set()
         self.uid = uid
         if self.graph_file != '':
             self.load_graph()
 
     def draw_exercise(self, canvas):
-        w = Message(canvas, text=self.story_text, bg='black', fill='white')
+        w = Message(canvas, text=self.story_text, bg='green', fill='white')
         w.place(x=30,y=80)
 
     def load_graph(self):
@@ -214,10 +215,7 @@ class Test:
         self.title = title
         self.exercises = []
         self.actual_question = 0
-        if self.title == '':
-            self.mode = 'creating'
-        else:
-            self.mode = 'testing'
+        self.mode = 'testing'
 
     def load(self, file_name):
         pass
@@ -225,10 +223,20 @@ class Test:
     def save(self, file_name):
         pass
 
-    def start_question(self, canvas):
-        if self.mode == 'testing':
+    def get_question(self, canvas):
+        if self.mode == 'testing' and len(self.exercises) > 0:
             self.exercises[self.actual_question].draw_exercise(canvas)
             return self.exercises[self.actual_question].graph
+
+    def next_question(self):
+        if self.actual_question + 1 >= len(self.exercises):
+            return
+        self.actual_question += 1
+
+    def previouse_question(self):
+        if self.actual_question - 1 < 0:
+            return
+        self.actual_question -= 1
 
 
 class Main:
@@ -279,9 +287,10 @@ class Main:
         self.colors = []
         self.mode = ''
         self.buttons = []
+        self.operations = dict()
 
         self.load_colors()
-        self.init_for_creating()
+        self.init_for_testing()
         self.paint_graph()
 
     def init_for_creating(self):
@@ -317,13 +326,14 @@ class Main:
         b.place(x=217, y=13)
         self.buttons.append(b)
         b = Button(self.canvas_top, text='Testovaci rezim', command=self.init_for_testing)
-        b.place(x=300, y=13)
+        b.place(x=278, y=13)
         self.buttons.append(b)
         self.draw_color_picker()
         self.delete_canvas()
 
     def init_for_testing(self):
         self.mode = 'testing'
+        self.test = None
         for button in self.buttons + list(self.operations.values()):
             button.place_forget()
         self.buttons = []
@@ -334,7 +344,26 @@ class Main:
         b = Button(self.canvas_top, text='Tvoriaci režim', command=self.init_for_creating)
         b.place(x=100, y=13)
         self.buttons.append(b)
+        b = Button(self.canvas_left, text='<', command=self.next_question, font=Main.FONT_STYLE)
+        b.place(x=Main.LEFT_WIDTH // 2 - 45, y=Main.LEFT_HEIGHT // 2)
+        self.buttons.append(b)
+        b = Button(self.canvas_left, text='>', command=self.previouse_question, font=Main.FONT_STYLE)
+        b.place(x=Main.LEFT_WIDTH // 2 + 20, y=Main.LEFT_HEIGHT // 2)
+        self.buttons.append(b)
         self.delete_canvas()
+
+    def next_question(self):
+        if self.test is not None:
+            self.test.next_question()
+            self.graph = self.test.get_question(self.canvas_left)
+            print(self.test.get_question(self.canvas_left))
+            self.paint_graph()
+
+    def previouse_question(self):
+        if self.test is not None:
+            self.test.previouse_question()
+            self.graph = self.test.get_question(self.canvas_left)
+            self.paint_graph()
 
     def switch(self):
         for item in self.picked:
@@ -346,7 +375,12 @@ class Main:
         filename = filedialog.askopenfilename()
         if filename:
             #TODO: ak existuje graf, opytat sa ci chce aktualny zahodit a otvorit novy
-            self.load(filename)
+            if self.mode == 'creating':
+                self.load(filename)
+            else:
+                self.test = Test()
+                self.test.load(filename)
+                self.graph = self.test.get_question(self.canvas_left)
         self.paint_graph()
 
     def select_file_save(self):
@@ -409,6 +443,8 @@ class Main:
         self.canvas_left.create_image(0, 0, image=self.background_left, anchor=NW)
 
     def paint_graph(self):
+        if self.graph['persons'] is None:
+            return
         self.delete_canvas()
         for person_uid in self.graph['persons']:
             self.graph['persons'][person_uid].draw_item(self.canvas_right)
@@ -417,6 +453,7 @@ class Main:
 
         if self.mode == 'creating' and len(self.picked) > 0:
             self.picked[-1].draw_info(self.canvas_left)
+
 
     def draw_color_picker(self):
         x = 25
