@@ -182,7 +182,7 @@ class Exercise:
 
     def draw_exercise(self, canvas):
         w = Message(canvas, text=self.story_text, bg='white', width=180, font=Main.FONT_STYLE)
-        w.place(x=30,y=50)
+        w.place(x=30, y=50)
         w = Message(canvas, text=self.question, bg='white', width=180, font=Main.FONT_STYLE)
         w.place(x=30, y=230)
 
@@ -240,6 +240,19 @@ class Exercise:
 
         return '{"uid" : "' + str(self.uid) + '", "story_text" : "' + self.story_text + '","question" : "' + self.question + '","graph_file" : "' + str(self.graph_file) + '","answers" : ' + get_answers(self.answers) + '}'
 
+    def evaluate(self):
+        result = set()
+        for person_uid in self.graph['persons']:
+            person = self.graph['persons'][person_uid]
+            if person.focus:
+                result.add(str(person.uid))
+        for relation_uid in self.graph['relations']:
+            relation = self.graph['relations'][relation_uid]
+            if relation.focus:
+                result.add(str(relation.uid))
+
+        return result == self.answers
+
 
 class Test:
     def __init__(self, title=''):
@@ -279,10 +292,21 @@ class Test:
             return
         self.actual_question += 1
 
-    def previouse_question(self):
+    def previous_question(self):
         if self.actual_question - 1 < 0:
             return
         self.actual_question -= 1
+
+    def evaluate(self):
+        result = dict()
+        result['correct'] = []
+        result['wrong'] = []
+        for exercise in self.exercises:
+            if exercise.evaluate():
+                result['correct'].append(exercise)
+            else:
+                result['wrong'].append(exercise)
+        return result
 
 
 class Main:
@@ -407,7 +431,7 @@ class Main:
 
     def previouse_question(self):
         if self.test is not None:
-            self.test.previouse_question()
+            self.test.previous_question()
             self.graph = self.test.get_question(self.canvas_left)
             self.paint_graph()
 
