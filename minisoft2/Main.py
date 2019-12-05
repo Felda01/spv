@@ -167,7 +167,7 @@ class Exercise:
         self.graph = dict()
         self.graph['persons'] = dict()
         self.graph['relations'] = dict()
-
+        self.objects = []
         if answers:
             self.answers = answers
         else:
@@ -182,9 +182,15 @@ class Exercise:
 
     def draw_exercise(self, canvas):
         w = Message(canvas, text=self.story_text, bg='white', width=180, font=Main.FONT_STYLE)
-        w.place(x=30, y=50)
+        w.place(x=30,y=50)
+        self.objects.append(w)
         w = Message(canvas, text=self.question, bg='white', width=180, font=Main.FONT_STYLE)
         w.place(x=30, y=230)
+        self.objects.append(w)
+
+    def remove_all_objects(self):
+        for item in self.objects:
+            item.place_forget()
 
     def load_graph(self):
         if os.path.isfile(self.graph_file):
@@ -290,11 +296,13 @@ class Test:
     def next_question(self):
         if self.actual_question + 1 >= len(self.exercises):
             return
+        self.exercises[self.actual_question].remove_all_objects()
         self.actual_question += 1
 
     def previous_question(self):
         if self.actual_question - 1 < 0:
             return
+        self.exercises[self.actual_question].remove_all_objects()
         self.actual_question -= 1
 
     def evaluate(self):
@@ -364,6 +372,9 @@ class Main:
         self.paint_graph()
 
     def init_for_creating(self):
+        if self.test is not None:
+            self.test.exercises[self.test.actual_question].remove_all_objects()
+            self.test = None
         self.mode = 'creating'
         for button in self.buttons:
             button.place_forget()
@@ -414,7 +425,7 @@ class Main:
         b = Button(self.canvas_top, text='Tvoriaci režim', command=self.init_for_creating)
         b.place(x=100, y=13)
         self.buttons.append(b)
-        b = Button(self.canvas_left, text='<', command=self.previouse_question, font=Main.FONT_STYLE)
+        b = Button(self.canvas_left, text='<', command=self.previous_question, font=Main.FONT_STYLE)
         b.place(x=Main.LEFT_WIDTH // 2 - 45, y=Main.LEFT_HEIGHT // 2)
         self.buttons.append(b)
         b = Button(self.canvas_left, text='>', command=self.next_question, font=Main.FONT_STYLE)
@@ -426,10 +437,9 @@ class Main:
         if self.test is not None:
             self.test.next_question()
             self.graph = self.test.get_question(self.canvas_left)
-            print(self.test.get_question(self.canvas_left))
             self.paint_graph()
 
-    def previouse_question(self):
+    def previous_question(self):
         if self.test is not None:
             self.test.previous_question()
             self.graph = self.test.get_question(self.canvas_left)
@@ -680,11 +690,15 @@ class Main:
 if __name__ == '__main__':
     m = Main()
     m.window.mainloop()
-    # e = Exercise('Vianoce sú pred dverami a Bart a Lisa ukazujú rodičom ich list so želaniami.', 'Označ Barta a Lisu.', './Graphs/simpsons.json', ['acf51105-c6d1-484f-8bf6-aa65cd6dbd42'])
+    # e = Exercise('Vianoce sú pred dverami a Bart a Lisa ukazujú rodičom ich list so želaniami.', 'Označ Barta a Lisu.', './Graphs/simpsons.json', ['960a90f3-cea5-41db-af45-ae88aaabf391', '6c90a9ee-1266-4faf-b7e7-30c42250f6e4'])
     # t = Test('Vianoce u Simpsonovcov')
     # t.exercises.append(e)
-    # e = Exercise('Maggie taktiež niečo chce a preto sa snaží ukázať rodičom čo.', 'Označ rodičov Maggie, nech vie komu má ukazovať.',
-    #              './Graphs/simpsons.json', ['acf51105-c6d1-484f-8bf6-aa65cd6dbd42'])
+    # e = Exercise('Maggie taktiež niečo chce a preto sa snaží ukázať rodičom čo. Počúva ju ale iba mama.', 'Označ mamu Maggie.',
+    #              './Graphs/simpsons.json', ['7d1dca26-d678-492d-ad22-08b8e20fed5d'])
+    # t.exercises.append(e)
+    # e = Exercise('Každý chlap v rodine Simsponovcov by chcel tetovanie.',
+    #              'Kto sú chlapi v rodine?',
+    #              './Graphs/simpsons.json', ['acf51105-c6d1-484f-8bf6-aa65cd6dbd42', '960a90f3-cea5-41db-af45-ae88aaabf391'])
     # t.exercises.append(e)
     # t.save('./tests/simpson.json')
 
