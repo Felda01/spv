@@ -359,9 +359,6 @@ class Main:
 
 
         # INITIALIZATION
-        self.graph = dict()
-        self.graph['persons'] = dict()
-        self.graph['relations'] = dict()
         self.picked = []
         self.moving_object = None
         self.operation = None
@@ -383,6 +380,9 @@ class Main:
         for button in self.buttons:
             button.place_forget()
         self.buttons = []
+        self.graph = dict()
+        self.graph['persons'] = dict()
+        self.graph['relations'] = dict()
         # BINDINGS
         self.canvas_right.unbind('<Button-1>')
         self.canvas_right.bind('<B1-Motion>', self.move)
@@ -428,6 +428,9 @@ class Main:
                 exercise.remove_all_objects()
         self.mode = 'testing'
         self.test = None
+        self.graph = dict()
+        self.graph['persons'] = dict()
+        self.graph['relations'] = dict()
         for button in self.buttons + list(self.operations.values()):
             button.place_forget()
         self.buttons = []
@@ -517,6 +520,9 @@ class Main:
             self.save(filename.name)
 
     def load(self, file_name: str):
+        self.graph = dict()
+        self.graph['persons'] = dict()
+        self.graph['relations'] = dict()
         if os.path.isfile(file_name):
             with open(file_name, 'r', encoding='utf8') as file:
                 loaded_graph_json = file.read()
@@ -565,9 +571,9 @@ class Main:
         self.canvas_left.create_image(0, 0, image=self.background_left, anchor=NW)
 
     def paint_graph(self):
-        if self.graph['persons'] is None:
-            return
         self.delete_canvas()
+        if self.graph is None or self.graph['persons'] is None:
+            return
         for person_uid in self.graph['persons']:
             self.graph['persons'][person_uid].draw_item(self.canvas_right)
         for relation_uid in self.graph['relations']:
