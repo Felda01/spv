@@ -1,5 +1,5 @@
 from tkinter import *
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 import os
 import uuid
 from functools import partial
@@ -256,8 +256,7 @@ class Exercise:
             relation = self.graph['relations'][relation_uid]
             if relation.focus:
                 result.add(str(relation.uid))
-
-        return result == self.answers
+        return result == set(self.answers)
 
 
 class Test:
@@ -266,6 +265,7 @@ class Test:
         self.exercises = []
         self.actual_question = 0
         self.mode = 'testing'
+        self.was_evaluate = False
 
     def load(self, file_name: str):
         if os.path.isfile(file_name):
@@ -297,6 +297,7 @@ class Test:
         if self.actual_question + 1 >= len(self.exercises):
             return
         self.exercises[self.actual_question].remove_all_objects()
+
         self.actual_question += 1
 
     def previous_question(self):
@@ -306,6 +307,7 @@ class Test:
         self.actual_question -= 1
 
     def evaluate(self):
+        self.was_evaluate = True
         result = dict()
         result['correct'] = []
         result['wrong'] = []
@@ -352,8 +354,7 @@ class Main:
         self.background_left = PhotoImage(file='images/background_left.png')
 
         # BINDINGS
-        self.canvas_right.bind('<ButtonPress-1>', self.start_move)
-        self.canvas_right.bind('<ButtonRelease-1>', self.end_move)
+
 
         # INITIALIZATION
         self.graph = dict()
@@ -366,6 +367,7 @@ class Main:
         self.mode = ''
         self.buttons = []
         self.operations = dict()
+        self.test = None
 
         self.load_colors()
         self.init_for_testing()
@@ -380,12 +382,18 @@ class Main:
             button.place_forget()
         self.buttons = []
         # BINDINGS
+        self.canvas_right.unbind('<Button-1>')
         self.canvas_right.bind('<B1-Motion>', self.move)
+        self.canvas_right.bind('<ButtonPress-1>', self.start_move)
+        self.canvas_right.bind('<ButtonRelease-1>', self.end_move)
 
         # BUTTONS
         switch_btn = Button(self.canvas_left, text='Vymeň', command=self.switch)
         switch_btn.place(x=self.LEFT_WIDTH - 80, y=230)
         self.buttons.append(switch_btn)
+        remove_btn = Button(self.canvas_left, text='Odstráň', command=self.remove)
+        remove_btn.place(x=self.LEFT_WIDTH - 80, y=270)
+        self.buttons.append(remove_btn)
         self.operations = dict()
         self.operations['create_person'] = Button(master=self.canvas_right, text='Pridaj osobu', width=12,
                                                   command=partial(self.set_operation, 'create_person'), bg='white')
@@ -413,17 +421,26 @@ class Main:
         self.delete_canvas()
 
     def init_for_testing(self):
+        if self.test is not None:
+            for exercise in self.test.exercises:
+                exercise.remove_all_objects()
         self.mode = 'testing'
         self.test = None
         for button in self.buttons + list(self.operations.values()):
             button.place_forget()
         self.buttons = []
         self.canvas_right.unbind('<B1-Motion>')
+        self.canvas_right.unbind('<ButtonPress-1>')
+        self.canvas_right.unbind('<ButtonRelease-1>')
+        self.canvas_right.bind('<Button-1>', self.start_move)
         b = Button(self.canvas_top, text='Načítaj pribeh', command=self.select_file_load)
         b.place(x=10, y=13)
         self.buttons.append(b)
-        b = Button(self.canvas_top, text='Tvoriaci režim', command=self.init_for_creating)
+        b = Button(self.canvas_top, text='Vyhodnoť príbeh', command=self.evaluate)
         b.place(x=100, y=13)
+        self.buttons.append(b)
+        b = Button(self.canvas_top, text='Tvoriaci režim', command=self.init_for_creating)
+        b.place(x=206, y=13)
         self.buttons.append(b)
         b = Button(self.canvas_left, text='<', command=self.previous_question, font=Main.FONT_STYLE)
         b.place(x=Main.LEFT_WIDTH // 2 - 45, y=Main.LEFT_HEIGHT // 2)
@@ -445,10 +462,38 @@ class Main:
             self.graph = self.test.get_question(self.canvas_left)
             self.paint_graph()
 
+    def evaluate(self):
+        if self.test is not None:
+            result = self.test.evaluate()
+            msg = messagebox.askquestion("Vyhodnotenie",
+                                         "Váš výsledok je:\n"+str(len(result['correct']))+" z "+str(len(result['correct'])+len(result['wrong']))+"otázok správnych.\nChcete si pozrieť výsledky?")
+            if msg != 'yes':
+                self.init_for_testing()
+            else:
+                self.paint_graph()
+
     def switch(self):
         for item in self.picked:
             if isinstance(item, Relation):
                 item.switch()
+        self.paint_graph()
+
+    def remove(self):
+        for item in self.picked:
+            if isinstance(item, Relation):
+                self.graph['relations'][item.uid].change()
+                self.picked.remove(self.graph['relations'][item.uid])
+                del self.graph['relations'][item.uid]
+            if isinstance(item, Person):
+                self.graph['persons'][item.uid].change()
+                self.picked.remove(self.graph['persons'][item.uid])
+                del self.graph['persons'][item.uid]
+                pom = []
+                for key in self.graph['relations'].keys():
+                    if item.uid in [self.graph['relations'][key].parent.uid, self.graph['relations'][key].child.uid]:
+                        pom.append(key)
+                for item in pom:
+                    del self.graph['relations'][item]
         self.paint_graph()
 
     def select_file_load(self):
@@ -458,6 +503,7 @@ class Main:
             if self.mode == 'creating':
                 self.load(filename)
             else:
+                self.init_for_testing()
                 self.test = Test()
                 self.test.load(filename)
                 self.graph = self.test.get_question(self.canvas_left)
@@ -570,6 +616,8 @@ class Main:
 
     def start_move(self, event):
         if self.mode == 'testing':
+            if self.test.was_evaluate:
+                return
             picked = False
             for person_uid in self.graph['persons']:
                 person = self.graph['persons'][person_uid]
