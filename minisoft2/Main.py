@@ -272,6 +272,8 @@ class Test:
             with open(file_name, 'r', encoding='utf8') as file:
                 loaded_test_json = file.read()
                 test_data = json.loads(loaded_test_json)
+                if 'title' not in test_data or 'exercises' not in test_data:
+                    return
                 if 'title' in test_data:
                     self.title = test_data['title']
                 if 'exercises' in test_data:
@@ -520,6 +522,9 @@ class Main:
                 loaded_graph_json = file.read()
                 graph_data = json.loads(loaded_graph_json)
                 uid_persons = dict()
+
+                if 'persons' not in graph_data or 'relations' not in graph_data:
+                    return
 
                 for person_data in graph_data['persons']:
                     person = Person()
