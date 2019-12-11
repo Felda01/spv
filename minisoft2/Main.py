@@ -1,4 +1,5 @@
 from tkinter import *
+from PIL import Image
 from tkinter import filedialog, messagebox
 import os
 import uuid
@@ -284,16 +285,21 @@ class Test:
                             self.exercises.append(exercise)
 
     def save(self, file_name):
+        self.set_answers()
         with open(file_name, 'w', encoding='utf8') as file:
             result_json = '{"title": "' + self.title + '", "exercises": ['
             result_json += ','.join([exercise.save() for exercise in self.exercises])
             result_json += ']}'
             file.write(result_json)
 
+    def set_answers(self):
+        pass
+
     def get_question(self, canvas):
         if self.mode == 'testing' and len(self.exercises) > 0:
             self.exercises[self.actual_question].draw_exercise(canvas)
             return self.exercises[self.actual_question].graph
+        return { "persons" : {}, "relations" : {} }
 
     def next_question(self):
         if self.actual_question + 1 >= len(self.exercises):
@@ -572,8 +578,6 @@ class Main:
 
     def paint_graph(self):
         self.delete_canvas()
-        if self.graph is None or self.graph['persons'] is None:
-            return
         for person_uid in self.graph['persons']:
             self.graph['persons'][person_uid].draw_item(self.canvas_right)
         for relation_uid in self.graph['relations']:
@@ -717,7 +721,10 @@ class Main:
             relation.change()
 
     def end_move(self, event):
-        self.moving_object = None
+        if self.operation == 'moving':
+            self.moving_object = None
+            self.remove_all_focuses()
+            self.paint_graph()
 
     def load_colors(self):
         self.colors = []
