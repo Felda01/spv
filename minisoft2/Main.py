@@ -293,7 +293,18 @@ class Test:
             file.write(result_json)
 
     def set_answers(self):
-        pass
+        if self.exercises:
+            for exercise in self.exercises:
+                if exercise.graph and exercise.graph['persons'] and exercise.graph['relations']:
+                    exercise_graph = exercise.graph
+                    for person_uid in exercise_graph['persons']:
+                        person = exercise_graph['persons'][person_uid]
+                        if person.focus:
+                            exercise.answers.add(str(person.uid))
+                    for relation_uid in exercise_graph['relations']:
+                        relation = exercise_graph['relations'][relation_uid]
+                        if relation.focus:
+                            exercise.answers.add(str(relation.uid))
 
     def get_question(self, canvas):
         if self.mode == 'testing' and len(self.exercises) > 0:
@@ -585,7 +596,6 @@ class Main:
 
         if self.mode == 'creating' and len(self.picked) > 0:
             self.picked[-1].draw_info(self.canvas_left)
-
 
     def draw_color_picker(self):
         x = 25
