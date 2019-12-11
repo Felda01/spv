@@ -45,7 +45,7 @@ class Person(Item):
         if uid:
             self.uid = uid
         else:
-            self.uid = uuid.uuid4()
+            self.uid = str(uuid.uuid4())
 
     def move(self, event: Event):
         pass
@@ -97,7 +97,7 @@ class Relation(Item):
         if uid:
             self.uid = uid
         else:
-            self.uid = uuid.uuid4()
+            self.uid = str(uuid.uuid4())
 
     def draw_info(self, canvas: Canvas):
         canvas.create_text(Main.LEFT_WIDTH // 2, 28, text='VZTAH', fill='green', font=Main.FONT_STYLE)
@@ -176,7 +176,7 @@ class Exercise:
         if uid:
             self.uid = uid
         else:
-            self.uid = uuid.uuid4()
+            self.uid = str(uuid.uuid4())
         if self.graph_file != '':
             self.load_graph()
 
@@ -606,11 +606,11 @@ class Main:
 
     def add_relation(self, relation: Relation):
         if relation.uid not in self.graph['relations']:
-            self.graph['relations'][str(relation.uid)] = relation
+            self.graph['relations'][relation.uid] = relation
 
     def add_person(self, person: Person):
         if person.uid not in self.graph['persons']:
-            self.graph['persons'][str(person.uid)] = person
+            self.graph['persons'][person.uid] = person
 
     def move(self, event):
         if self.moving_object is not None:
