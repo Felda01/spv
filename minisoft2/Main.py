@@ -1,5 +1,4 @@
 from tkinter import *
-from PIL import Image
 from tkinter import filedialog, messagebox
 import os
 import uuid
@@ -136,7 +135,7 @@ class Relation(Item):
         if self.focus:
             color = self.focus_border_color
         canvas.create_line(parent_x, parent_y, child_x, child_y, width=3, arrow=LAST, arrowshape=(20, 40, 10), fill=color)
-        canvas.create_text((self.parent.x+self.child.x)/2, (self.parent.y+self.child.y)/2, text=self.name, font=Main.FONT_STYLE, fill='crimson', angle=-45)
+        canvas.create_text((self.parent.x+self.child.x)/2, (self.parent.y+self.child.y)/2, text=self.name, font=Main.FONT_STYLE, fill='crimson')
 
     def load(self, properties: dict):
         if 'color' not in properties or 'parent' not in properties or 'child' not in properties or 'name' not in properties or 'uid' not in properties:
@@ -375,7 +374,7 @@ class Main:
         self.test = None
 
         self.load_colors()
-        self.init_for_testing()
+        self.init_for_creating()
         self.paint_graph()
 
     def init_for_creating(self):
@@ -396,12 +395,12 @@ class Main:
         self.canvas_right.bind('<ButtonRelease-1>', self.end_move)
 
         # BUTTONS
-        switch_btn = Button(self.canvas_left, text='Vymeň', command=self.switch)
-        switch_btn.place(x=self.LEFT_WIDTH - 80, y=230)
-        self.buttons.append(switch_btn)
-        remove_btn = Button(self.canvas_left, text='Odstráň', command=self.remove)
-        remove_btn.place(x=self.LEFT_WIDTH - 80, y=270)
-        self.buttons.append(remove_btn)
+        self.switch_btn = Button(self.canvas_left, text='Vymeň', command=self.switch)
+        self.switch_btn.place(x=self.LEFT_WIDTH - 80, y=230)
+        self.buttons.append(self.switch_btn)
+        self.remove_btn = Button(self.canvas_left, text='Odstráň', command=self.remove)
+        self.remove_btn.place(x=self.LEFT_WIDTH - 80, y=270)
+        self.buttons.append(self.remove_btn)
         self.operations = dict()
         self.operations['create_person'] = Button(master=self.canvas_right, text='Pridaj osobu', width=12,
                                                   command=partial(self.set_operation, 'create_person'), bg='white')
@@ -419,11 +418,14 @@ class Main:
         b = Button(self.canvas_top, text='Ulož rodostrom', command=self.select_file_save)
         b.place(x=120, y=13)
         self.buttons.append(b)
-        b = Button(self.canvas_top, text='Obrázok', command=self.export)
+        # b = Button(self.canvas_top, text='Obrázok', command=self.export)
+        # b.place(x=217, y=13)
+        # self.buttons.append(b)
+        b = Button(self.canvas_top, text='Testovaci rezim', command=self.init_for_testing)
         b.place(x=217, y=13)
         self.buttons.append(b)
-        b = Button(self.canvas_top, text='Testovaci rezim', command=self.init_for_testing)
-        b.place(x=278, y=13)
+        b = Button(self.canvas_right, text='X', command=self.delete_graph, bg='red', font=self.FONT_STYLE.replace("15", "18"), width=3)
+        b.place(x=self.RIGHT_WIDTH-80, y=20)
         self.buttons.append(b)
         self.draw_color_picker()
         self.delete_canvas()
@@ -489,6 +491,17 @@ class Main:
                 item.switch()
         self.paint_graph()
 
+    def delete_graph(self):
+        if self.graph['persons'] == dict():
+            return
+        msg = messagebox.askquestion("Ste si istý?",
+                                     "Chcete zahodiť všetky vytvorené zmeny?")
+        if msg == 'yes':
+            self.graph = dict()
+            self.graph['persons'] = dict()
+            self.graph['relations'] = dict()
+        self.paint_graph()
+
     def remove(self):
         for item in self.picked:
             if isinstance(item, Relation):
@@ -510,7 +523,11 @@ class Main:
     def select_file_load(self):
         filename = filedialog.askopenfilename()
         if filename:
-            #TODO: ak existuje graf, opytat sa ci chce aktualny zahodit a otvorit novy
+            if self.graph['persons'] != dict():
+                msg = messagebox.askquestion("Ste si istý?",
+                                             "Chcete zahodiť všetky vytvorene zmeny?")
+                if msg != 'yes':
+                    return
             if self.mode == 'creating':
                 self.load(filename)
             else:
@@ -578,6 +595,8 @@ class Main:
 
     def paint_graph(self):
         self.delete_canvas()
+        self.switch_btn.place_forget()
+        self.remove_btn.place_forget()
         for person_uid in self.graph['persons']:
             self.graph['persons'][person_uid].draw_item(self.canvas_right)
         for relation_uid in self.graph['relations']:
@@ -585,12 +604,15 @@ class Main:
 
         if self.mode == 'creating' and len(self.picked) > 0:
             self.picked[-1].draw_info(self.canvas_left)
+            self.remove_btn.place(x=self.LEFT_WIDTH - 80, y=270)
+            self.remove_btn.place()
+            if isinstance(self.picked[-1], Relation):
+                self.switch_btn.place(x=self.LEFT_WIDTH - 80, y=230)
 
 
     def draw_color_picker(self):
         x = 25
         y = 365
-        r = None
         for color in self.colors:
             btn = Button(master=self.canvas_left, command=partial(self.set_color, color), bg=color, width=5, height=2)
             btn.place(x=x, y=y)
