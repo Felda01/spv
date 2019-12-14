@@ -154,13 +154,14 @@ class Relation(Item):
         return abs((n_vector[0]*event.x+n_vector[1]*event.y+c)/((n_vector[0]**2+n_vector[1]**2)**0.5))
 
     def change(self):
+        if self.entry is not None:
+            self.entry.place_forget()
         if self.s.get() != '':
             self.name = self.s.get()
-            self.entry.place_forget()
 
 
 class Exercise:
-    def __init__(self, story_text='', question='', graph='', answers=None, uid=''):
+    def __init__(self, story_text='', question='', graph=None, answers=None, uid=''):
         self.story_text = story_text
         self.question = question
         self.graph = dict()
@@ -176,8 +177,8 @@ class Exercise:
             self.uid = uid
         else:
             self.uid = str(uuid.uuid4())
-
-        self.load_graph(graph)
+        if graph is not None:
+            self.load_graph(graph)
 
     def draw_exercise(self, canvas):
         w = Message(canvas, text=self.story_text, bg='white', width=180, font=Main.FONT_STYLE)
@@ -199,17 +200,19 @@ class Exercise:
             person = Person()
             correct = person.load(person_data)
             if correct:
-                uid_persons[str(person_data['uid'])] = person
+                uid_persons[person_data['uid']] = person
                 self.add_person(person)
-
         for relation_data in graph_data['relations']:
             relation = Relation()
-            if uid_persons[str(relation_data['parent'])] and uid_persons[str(relation_data['child'])]:
-                relation_data['parent'] = uid_persons[str(relation_data['parent'])]
-                relation_data['child'] = uid_persons[str(relation_data['child'])]
-                correct = relation.load(relation_data)
-                if correct:
-                    self.add_relation(relation)
+            try:
+                if uid_persons[relation_data['parent']] and uid_persons[relation_data['child']]:
+                    relation_data['parent'] = uid_persons[str(relation_data['parent'])]
+                    relation_data['child'] = uid_persons[str(relation_data['child'])]
+                    correct = relation.load(relation_data)
+                    if correct:
+                        self.add_relation(relation)
+            except:
+                pass
 
     def save_graph(self):
         result_json = '{"persons": ['
@@ -225,11 +228,11 @@ class Exercise:
 
 
     def add_relation(self, relation: Relation):
-        if relation.uid not in self.graph['relations']:
+        if str(relation.uid) not in self.graph['relations']:
             self.graph['relations'][str(relation.uid)] = relation
 
     def add_person(self, person: Person):
-        if person.uid not in self.graph['persons']:
+        if str(person.uid) not in self.graph['persons']:
             self.graph['persons'][str(person.uid)] = person
 
     def load(self, properties):
@@ -253,7 +256,7 @@ class Exercise:
             result += ']'
             return result
 
-        return '{"uid" : "' + str(self.uid) + '", "story_text" : "' + self.story_text + '","question" : "' + self.question + '","graph" : "' + str(self.save_graph()) + '","answers" : ' + get_answers(self.answers) + '}'
+        return '{"uid" : "' + str(self.uid) + '", "story_text" : "' + self.story_text + '","question" : "' + self.question + '","graph" : ' + str(self.save_graph()) + ',"answers" : ' + get_answers(self.answers) + '}'
 
     def evaluate(self):
         result = set()
@@ -469,17 +472,17 @@ class Main:
         b = Button(self.canvas_top, text='Načítaj pribeh', command=self.select_file_load)
         b.place(x=10, y=13)
         self.buttons.append(b)
-        b = Button(self.canvas_top, text='Vyhodnoť príbeh', command=self.evaluate)
-        b.place(x=100, y=13)
-        self.buttons.append(b)
         b = Button(self.canvas_top, text='Tvoriaci režim', command=self.init_for_creating)
-        b.place(x=206, y=13)
+        b.place(x=100, y=13)
         self.buttons.append(b)
         b = Button(self.canvas_left, text='<', command=self.previous_question, font=Main.FONT_STYLE)
         b.place(x=Main.LEFT_WIDTH // 2 - 45, y=Main.LEFT_HEIGHT // 2)
         self.buttons.append(b)
         b = Button(self.canvas_left, text='>', command=self.next_question, font=Main.FONT_STYLE)
         b.place(x=Main.LEFT_WIDTH // 2 + 20, y=Main.LEFT_HEIGHT // 2)
+        self.buttons.append(b)
+        b = Button(self.canvas_left, text='Vyhodnoť príbeh', command=self.evaluate, font=Main.FONT_STYLE)
+        b.place(x=Main.LEFT_WIDTH // 2-75, y=Main.LEFT_HEIGHT // 2+40)
         self.buttons.append(b)
         self.delete_canvas()
 
@@ -499,7 +502,7 @@ class Main:
         if self.test is not None:
             result = self.test.evaluate()
             msg = messagebox.askquestion("Vyhodnotenie",
-                                         "Váš výsledok je:\n"+str(len(result['correct']))+" z "+str(len(result['correct'])+len(result['wrong']))+"otázok správnych.\nChcete si pozrieť výsledky?")
+                                         "Váš výsledok je:\n\n"+str(len(result['correct']))+" z "+str(len(result['correct'])+len(result['wrong']))+" otázok správnych.\nChcete si pozrieť výsledky?")
             if msg != 'yes':
                 self.init_for_testing()
             else:
@@ -782,6 +785,10 @@ class Main:
             self.colors = self.COLORS_DEFAULT
 
     def set_operation(self, operation_name):
+        if len(self.picked) > 0 and isinstance(self.picked[-1], Relation):
+            self.picked[-1].change()
+            self.picked[-1].focus = False
+            self.picked.pop()
         if self.operation == operation_name:
             self.operation = None
             self.operations[operation_name].config(bg='white')
@@ -792,20 +799,348 @@ class Main:
             self.operations[self.operation].config(bg='white')
             self.operation = operation_name
             self.operations[operation_name].config(bg='green')
+        self.paint_graph()
 
 
 if __name__ == '__main__':
     m = Main()
     m.window.mainloop()
-    # e = Exercise('Vianoce sú pred dverami a Bart a Lisa ukazujú rodičom ich list so želaniami.', 'Označ Barta a Lisu.', './Graphs/simpsons.json', ['960a90f3-cea5-41db-af45-ae88aaabf391', '6c90a9ee-1266-4faf-b7e7-30c42250f6e4'])
+    # # 1. otazka
+    # family = {"persons": [
+    #     {"uid": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42", "x": "303", "y": "157", "name": "Homer", "color": "#F79F1F"},
+    #     {"uid": "7d1dca26-d678-492d-ad22-08b8e20fed5d", "x": "495", "y": "182", "name": "Marge", "color": "#0652DD"},
+    #     {"uid": "960a90f3-cea5-41db-af45-ae88aaabf391", "x": "163", "y": "333", "name": "Bart", "color": "#EE5A24"},
+    #     {"uid": "6c90a9ee-1266-4faf-b7e7-30c42250f6e4", "x": "365", "y": "339", "name": "Lisa", "color": "#BFBFBF"},
+    #     {"uid": "2b6696b0-1a0b-444a-921b-28a2148a4381", "x": "511", "y": "343", "name": "Maggie", "color": "#12CBC4"}],
+    #           "relations": [
+    #               {"uid": "3bb07dc1-e6b2-4004-988b-16b792559b62", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #                "child": "7d1dca26-d678-492d-ad22-08b8e20fed5d", "name": "Manzel", "color": "black"},
+    #               {"uid": "937aebb0-6eb0-424c-90fb-3770214e1f80", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #                "child": "960a90f3-cea5-41db-af45-ae88aaabf391", "name": "Syn", "color": "black"},
+    #               {"uid": "93714447-72cd-4900-9fbe-de342051ea1d", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #                "child": "6c90a9ee-1266-4faf-b7e7-30c42250f6e4", "name": "Dcera", "color": "black"},
+    #               {"uid": "bb9ebb22-0f2e-4d3b-935e-22621320b2aa", "parent": "7d1dca26-d678-492d-ad22-08b8e20fed5d",
+    #                "child": "2b6696b0-1a0b-444a-921b-28a2148a4381", "name": "Dcera", "color": "black"}]}
+    # e = Exercise('Vianoce sú pred dverami a Bart a Lisa ukazujú rodičom ich list so želaniami.',
+    #              'Označ Barta a Lisu.',
+    #              family, ['960a90f3-cea5-41db-af45-ae88aaabf391', '6c90a9ee-1266-4faf-b7e7-30c42250f6e4'])
     # t = Test('Vianoce u Simpsonovcov')
     # t.exercises.append(e)
-    # e = Exercise('Maggie taktiež niečo chce a preto sa snaží ukázať rodičom čo. Počúva ju ale iba mama.', 'Označ mamu Maggie.',
-    #              './Graphs/simpsons.json', ['7d1dca26-d678-492d-ad22-08b8e20fed5d'])
+    # # 2. otazka
+    # family = {"persons": [
+    #     {"uid": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42", "x": "303", "y": "157", "name": "Homer", "color": "#F79F1F"},
+    #     {"uid": "7d1dca26-d678-492d-ad22-08b8e20fed5d", "x": "495", "y": "182", "name": "Marge", "color": "#0652DD"},
+    #     {"uid": "960a90f3-cea5-41db-af45-ae88aaabf391", "x": "163", "y": "333", "name": "Bart", "color": "#EE5A24"},
+    #     {"uid": "6c90a9ee-1266-4faf-b7e7-30c42250f6e4", "x": "365", "y": "339", "name": "Lisa", "color": "#BFBFBF"},
+    #     {"uid": "2b6696b0-1a0b-444a-921b-28a2148a4381", "x": "511", "y": "343", "name": "Maggie", "color": "#12CBC4"}],
+    #     "relations": [
+    #         {"uid": "3bb07dc1-e6b2-4004-988b-16b792559b62", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #          "child": "7d1dca26-d678-492d-ad22-08b8e20fed5d", "name": "Manzel", "color": "black"},
+    #         {"uid": "937aebb0-6eb0-424c-90fb-3770214e1f80", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #          "child": "960a90f3-cea5-41db-af45-ae88aaabf391", "name": "Syn", "color": "black"},
+    #         {"uid": "93714447-72cd-4900-9fbe-de342051ea1d", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #          "child": "6c90a9ee-1266-4faf-b7e7-30c42250f6e4", "name": "Dcera", "color": "black"},
+    #         {"uid": "bb9ebb22-0f2e-4d3b-935e-22621320b2aa", "parent": "7d1dca26-d678-492d-ad22-08b8e20fed5d",
+    #          "child": "2b6696b0-1a0b-444a-921b-28a2148a4381", "name": "Dcera", "color": "black"}]}
+    # e = Exercise('Maggie taktiež niečo chce a preto sa snaží ukázať rodičom čo. Počúva ju ale iba mama.',
+    #              'Označ mamu Maggie.',
+    #              family, ['7d1dca26-d678-492d-ad22-08b8e20fed5d'])
     # t.exercises.append(e)
+    #
+    # # 3. otazka
+    # family = {"persons": [
+    #     {"uid": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42", "x": "303", "y": "157", "name": "Homer", "color": "#F79F1F"},
+    #     {"uid": "7d1dca26-d678-492d-ad22-08b8e20fed5d", "x": "495", "y": "182", "name": "Marge", "color": "#0652DD"},
+    #     {"uid": "960a90f3-cea5-41db-af45-ae88aaabf391", "x": "163", "y": "333", "name": "Bart", "color": "#EE5A24"},
+    #     {"uid": "6c90a9ee-1266-4faf-b7e7-30c42250f6e4", "x": "365", "y": "339", "name": "Lisa", "color": "#BFBFBF"},
+    #     {"uid": "2b6696b0-1a0b-444a-921b-28a2148a4381", "x": "511", "y": "343", "name": "Maggie", "color": "#12CBC4"}],
+    #     "relations": [
+    #         {"uid": "3bb07dc1-e6b2-4004-988b-16b792559b62", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #          "child": "7d1dca26-d678-492d-ad22-08b8e20fed5d", "name": "Manzel", "color": "black"},
+    #         {"uid": "937aebb0-6eb0-424c-90fb-3770214e1f80", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #          "child": "960a90f3-cea5-41db-af45-ae88aaabf391", "name": "Syn", "color": "black"},
+    #         {"uid": "93714447-72cd-4900-9fbe-de342051ea1d", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #          "child": "6c90a9ee-1266-4faf-b7e7-30c42250f6e4", "name": "Dcera", "color": "black"},
+    #         {"uid": "bb9ebb22-0f2e-4d3b-935e-22621320b2aa", "parent": "7d1dca26-d678-492d-ad22-08b8e20fed5d",
+    #          "child": "2b6696b0-1a0b-444a-921b-28a2148a4381", "name": "Dcera", "color": "black"}]}
     # e = Exercise('Každý chlap v rodine Simsponovcov by chcel tetovanie.',
     #              'Kto sú chlapi v rodine?',
-    #              './Graphs/simpsons.json', ['acf51105-c6d1-484f-8bf6-aa65cd6dbd42', '960a90f3-cea5-41db-af45-ae88aaabf391'])
+    #              family, ['acf51105-c6d1-484f-8bf6-aa65cd6dbd42', '960a90f3-cea5-41db-af45-ae88aaabf391'])
     # t.exercises.append(e)
+    #
+    # # 4. otazka
+    # family = {"persons": [
+    #     {"uid": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42", "x": "280", "y": "245", "name": "Homer", "color": "#F79F1F"},
+    #     {"uid": "7d1dca26-d678-492d-ad22-08b8e20fed5d", "x": "485", "y": "267", "name": "Marge", "color": "#0652DD"},
+    #     {"uid": "960a90f3-cea5-41db-af45-ae88aaabf391", "x": "148", "y": "410", "name": "Bart", "color": "#EE5A24"},
+    #     {"uid": "6c90a9ee-1266-4faf-b7e7-30c42250f6e4", "x": "357", "y": "418", "name": "Lisa", "color": "#BFBFBF"},
+    #     {"uid": "2b6696b0-1a0b-444a-921b-28a2148a4381", "x": "528", "y": "441", "name": "Maggie", "color": "#12CBC4"},
+    #     {"uid": "ac7dbfb0-2489-4897-a239-c46c03139285", "x": "175", "y": "162", "name": "Abe", "color": "#A3CB38"},
+    #     {"uid": "d4100bf3-9652-4242-b73f-a7049d96ecc3", "x": "335", "y": "133", "name": "Mona", "color": "#ED4C67"},
+    #     {"uid": "fdf38fe8-2618-4e8a-9163-e7fd03b3cf74", "x": "74", "y": "248", "name": "Herb", "color": "#833471"}],
+    #           "relations": [
+    #               {"uid": "3bb07dc1-e6b2-4004-988b-16b792559b62", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #                "child": "7d1dca26-d678-492d-ad22-08b8e20fed5d", "name": "Manzel", "color": "#FFFFFF"},
+    #               {"uid": "937aebb0-6eb0-424c-90fb-3770214e1f80", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #                "child": "960a90f3-cea5-41db-af45-ae88aaabf391", "name": "Syn", "color": "#FFFFFF"},
+    #               {"uid": "93714447-72cd-4900-9fbe-de342051ea1d", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #                "child": "6c90a9ee-1266-4faf-b7e7-30c42250f6e4", "name": "Dcera", "color": "#FFFFFF"},
+    #               {"uid": "bb9ebb22-0f2e-4d3b-935e-22621320b2aa", "parent": "7d1dca26-d678-492d-ad22-08b8e20fed5d",
+    #                "child": "2b6696b0-1a0b-444a-921b-28a2148a4381", "name": "Dcera", "color": "#FFFFFF"},
+    #               {"uid": "dc782299-e9cc-4e6a-9399-a5c808d663e5", "parent": "ac7dbfb0-2489-4897-a239-c46c03139285",
+    #                "child": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42", "name": "Syn", "color": "#FFFFFF"},
+    #               {"uid": "aad8c585-22c2-4c52-872c-470a5d971e11", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #                "child": "d4100bf3-9652-4242-b73f-a7049d96ecc3", "name": "Mama", "color": "#FFFFFF"},
+    #               {"uid": "b752e4f9-60b8-421f-8965-8fddd6f5c9a4", "parent": "fdf38fe8-2618-4e8a-9163-e7fd03b3cf74",
+    #                "child": "ac7dbfb0-2489-4897-a239-c46c03139285", "name": "Otec", "color": "#FFFFFF"}]}
+    # e = Exercise('U simpsonovcov majú radi pivo a bratia na neho chodia pravidelne.',
+    #              'Označ všetkých, ktorý majú brata.',
+    #              family, ["acf51105-c6d1-484f-8bf6-aa65cd6dbd42", "fdf38fe8-2618-4e8a-9163-e7fd03b3cf74",
+    #                       "6c90a9ee-1266-4faf-b7e7-30c42250f6e4", "2b6696b0-1a0b-444a-921b-28a2148a4381"])
+    # t.exercises.append(e)
+    #
+    # # 5. otazka
+    # family = {"persons": [
+    #     {"uid": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42", "x": "280", "y": "245", "name": "Homer", "color": "#F79F1F"},
+    #     {"uid": "7d1dca26-d678-492d-ad22-08b8e20fed5d", "x": "485", "y": "267", "name": "Marge", "color": "#0652DD"},
+    #     {"uid": "960a90f3-cea5-41db-af45-ae88aaabf391", "x": "148", "y": "410", "name": "Bart", "color": "#EE5A24"},
+    #     {"uid": "6c90a9ee-1266-4faf-b7e7-30c42250f6e4", "x": "357", "y": "418", "name": "Lisa", "color": "#BFBFBF"},
+    #     {"uid": "2b6696b0-1a0b-444a-921b-28a2148a4381", "x": "528", "y": "441", "name": "Maggie", "color": "#12CBC4"},
+    #     {"uid": "ac7dbfb0-2489-4897-a239-c46c03139285", "x": "175", "y": "162", "name": "Abe", "color": "#A3CB38"},
+    #     {"uid": "d4100bf3-9652-4242-b73f-a7049d96ecc3", "x": "335", "y": "133", "name": "Mona", "color": "#ED4C67"},
+    #     {"uid": "fdf38fe8-2618-4e8a-9163-e7fd03b3cf74", "x": "74", "y": "248", "name": "Herb", "color": "#833471"}],
+    #           "relations": [
+    #               {"uid": "3bb07dc1-e6b2-4004-988b-16b792559b62", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #                "child": "7d1dca26-d678-492d-ad22-08b8e20fed5d", "name": "Manzel", "color": "#FFFFFF"},
+    #               {"uid": "937aebb0-6eb0-424c-90fb-3770214e1f80", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #                "child": "960a90f3-cea5-41db-af45-ae88aaabf391", "name": "Syn", "color": "#FFFFFF"},
+    #               {"uid": "93714447-72cd-4900-9fbe-de342051ea1d", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #                "child": "6c90a9ee-1266-4faf-b7e7-30c42250f6e4", "name": "Dcera", "color": "#FFFFFF"},
+    #               {"uid": "bb9ebb22-0f2e-4d3b-935e-22621320b2aa", "parent": "7d1dca26-d678-492d-ad22-08b8e20fed5d",
+    #                "child": "2b6696b0-1a0b-444a-921b-28a2148a4381", "name": "Dcera", "color": "#FFFFFF"},
+    #               {"uid": "dc782299-e9cc-4e6a-9399-a5c808d663e5", "parent": "ac7dbfb0-2489-4897-a239-c46c03139285",
+    #                "child": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42", "name": "Syn", "color": "#FFFFFF"},
+    #               {"uid": "aad8c585-22c2-4c52-872c-470a5d971e11", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #                "child": "d4100bf3-9652-4242-b73f-a7049d96ecc3", "name": "Mama", "color": "#FFFFFF"},
+    #               {"uid": "b752e4f9-60b8-421f-8965-8fddd6f5c9a4", "parent": "fdf38fe8-2618-4e8a-9163-e7fd03b3cf74",
+    #                "child": "ac7dbfb0-2489-4897-a239-c46c03139285", "name": "Otec", "color": "#FFFFFF"}]}
+    # e = Exercise('Rodičovstvo na Vinaoce je náročná vec. Vieš nám pomôcť nájsť všetkých?',
+    #              'Vyznač všetkých rodičov.',
+    #              family, ["acf51105-c6d1-484f-8bf6-aa65cd6dbd42", "7d1dca26-d678-492d-ad22-08b8e20fed5d",
+    #                       "ac7dbfb0-2489-4897-a239-c46c03139285", "d4100bf3-9652-4242-b73f-a7049d96ecc3"])
+    # t.exercises.append(e)
+    #
+    # # 6. otazka
+    # family = {"persons": [
+    #     {"uid": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42", "x": "280", "y": "245", "name": "Homer", "color": "#F79F1F"},
+    #     {"uid": "7d1dca26-d678-492d-ad22-08b8e20fed5d", "x": "485", "y": "267", "name": "Marge", "color": "#0652DD"},
+    #     {"uid": "960a90f3-cea5-41db-af45-ae88aaabf391", "x": "148", "y": "410", "name": "Bart", "color": "#EE5A24"},
+    #     {"uid": "6c90a9ee-1266-4faf-b7e7-30c42250f6e4", "x": "357", "y": "418", "name": "Lisa", "color": "#BFBFBF"},
+    #     {"uid": "2b6696b0-1a0b-444a-921b-28a2148a4381", "x": "528", "y": "441", "name": "Maggie", "color": "#12CBC4"},
+    #     {"uid": "ac7dbfb0-2489-4897-a239-c46c03139285", "x": "175", "y": "162", "name": "Abe", "color": "#A3CB38"},
+    #     {"uid": "d4100bf3-9652-4242-b73f-a7049d96ecc3", "x": "335", "y": "133", "name": "Mona", "color": "#ED4C67"},
+    #     {"uid": "fdf38fe8-2618-4e8a-9163-e7fd03b3cf74", "x": "74", "y": "248", "name": "Herb", "color": "#833471"}],
+    #           "relations": [
+    #               {"uid": "3bb07dc1-e6b2-4004-988b-16b792559b62", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #                "child": "7d1dca26-d678-492d-ad22-08b8e20fed5d", "name": "Manzel", "color": "#FFFFFF"},
+    #               {"uid": "937aebb0-6eb0-424c-90fb-3770214e1f80", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #                "child": "960a90f3-cea5-41db-af45-ae88aaabf391", "name": "Syn", "color": "#FFFFFF"},
+    #               {"uid": "93714447-72cd-4900-9fbe-de342051ea1d", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #                "child": "6c90a9ee-1266-4faf-b7e7-30c42250f6e4", "name": "Dcera", "color": "#FFFFFF"},
+    #               {"uid": "bb9ebb22-0f2e-4d3b-935e-22621320b2aa", "parent": "7d1dca26-d678-492d-ad22-08b8e20fed5d",
+    #                "child": "2b6696b0-1a0b-444a-921b-28a2148a4381", "name": "Dcera", "color": "#FFFFFF"},
+    #               {"uid": "dc782299-e9cc-4e6a-9399-a5c808d663e5", "parent": "ac7dbfb0-2489-4897-a239-c46c03139285",
+    #                "child": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42", "name": "Syn", "color": "#FFFFFF"},
+    #               {"uid": "aad8c585-22c2-4c52-872c-470a5d971e11", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #                "child": "d4100bf3-9652-4242-b73f-a7049d96ecc3", "name": "Mama", "color": "#FFFFFF"},
+    #               {"uid": "b752e4f9-60b8-421f-8965-8fddd6f5c9a4", "parent": "fdf38fe8-2618-4e8a-9163-e7fd03b3cf74",
+    #                "child": "ac7dbfb0-2489-4897-a239-c46c03139285", "name": "Otec", "color": "#FFFFFF"}]}
+    # e = Exercise('Iba tí čo nemajú deti, nekupujú darčeky. Kto sú tí šťastí?',
+    #              'Vyznač všetkých, ktorí nemusia kupovať darčeky.',
+    #              family, ["960a90f3-cea5-41db-af45-ae88aaabf391", "6c90a9ee-1266-4faf-b7e7-30c42250f6e4",
+    #                       "2b6696b0-1a0b-444a-921b-28a2148a4381", "fdf38fe8-2618-4e8a-9163-e7fd03b3cf74"])
+    # t.exercises.append(e)
+    #
+    # # 7. otazka-
+    # family = {"persons": [
+    #     {"uid": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42", "x": "280", "y": "245", "name": "Homer", "color": "#F79F1F"},
+    #     {"uid": "7d1dca26-d678-492d-ad22-08b8e20fed5d", "x": "485", "y": "267", "name": "Marge", "color": "#0652DD"},
+    #     {"uid": "960a90f3-cea5-41db-af45-ae88aaabf391", "x": "148", "y": "410", "name": "Bart", "color": "#EE5A24"},
+    #     {"uid": "6c90a9ee-1266-4faf-b7e7-30c42250f6e4", "x": "357", "y": "418", "name": "Lisa", "color": "#BFBFBF"},
+    #     {"uid": "2b6696b0-1a0b-444a-921b-28a2148a4381", "x": "528", "y": "441", "name": "Maggie", "color": "#12CBC4"},
+    #     {"uid": "ac7dbfb0-2489-4897-a239-c46c03139285", "x": "175", "y": "162", "name": "Abe", "color": "#A3CB38"},
+    #     {"uid": "d4100bf3-9652-4242-b73f-a7049d96ecc3", "x": "335", "y": "133", "name": "Mona", "color": "#ED4C67"},
+    #     {"uid": "fdf38fe8-2618-4e8a-9163-e7fd03b3cf74", "x": "74", "y": "248", "name": "Herb", "color": "#833471"},
+    #     {"uid": "e3f41325-a8ca-4c88-b873-d792f8030309", "x": "501", "y": "131", "name": "Patty", "color": "#D980FA"},
+    #     {"uid": "62268daa-0a83-4fc2-af46-2ec21a498180", "x": "677", "y": "144", "name": "Selma", "color": "#D980FA"},
+    #     {"uid": "459e50dc-23af-4d17-b8fe-72150ce51755", "x": "655", "y": "297", "name": "Ling", "color": "#FFC312"}],
+    #           "relations": [
+    #               {"uid": "3bb07dc1-e6b2-4004-988b-16b792559b62", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #                "child": "7d1dca26-d678-492d-ad22-08b8e20fed5d", "name": "Manzel", "color": "#FFFFFF"},
+    #               {"uid": "937aebb0-6eb0-424c-90fb-3770214e1f80", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #                "child": "960a90f3-cea5-41db-af45-ae88aaabf391", "name": "Syn", "color": "#FFFFFF"},
+    #               {"uid": "93714447-72cd-4900-9fbe-de342051ea1d", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #                "child": "6c90a9ee-1266-4faf-b7e7-30c42250f6e4", "name": "Dcera", "color": "#FFFFFF"},
+    #               {"uid": "bb9ebb22-0f2e-4d3b-935e-22621320b2aa", "parent": "7d1dca26-d678-492d-ad22-08b8e20fed5d",
+    #                "child": "2b6696b0-1a0b-444a-921b-28a2148a4381", "name": "Dcera", "color": "#FFFFFF"},
+    #               {"uid": "dc782299-e9cc-4e6a-9399-a5c808d663e5", "parent": "ac7dbfb0-2489-4897-a239-c46c03139285",
+    #                "child": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42", "name": "Syn", "color": "#FFFFFF"},
+    #               {"uid": "aad8c585-22c2-4c52-872c-470a5d971e11", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #                "child": "d4100bf3-9652-4242-b73f-a7049d96ecc3", "name": "Mama", "color": "#FFFFFF"},
+    #               {"uid": "b752e4f9-60b8-421f-8965-8fddd6f5c9a4", "parent": "fdf38fe8-2618-4e8a-9163-e7fd03b3cf74",
+    #                "child": "ac7dbfb0-2489-4897-a239-c46c03139285", "name": "Otec", "color": "#FFFFFF"},
+    #               {"uid": "c28dc1a8-1fa7-4095-928c-120c82834b84", "parent": "e3f41325-a8ca-4c88-b873-d792f8030309",
+    #                "child": "7d1dca26-d678-492d-ad22-08b8e20fed5d", "name": "Sestra", "color": "#FFFFFF"},
+    #               {"uid": "a957b22c-94a7-438c-84b9-ecb95fdcae17", "parent": "62268daa-0a83-4fc2-af46-2ec21a498180",
+    #                "child": "459e50dc-23af-4d17-b8fe-72150ce51755", "name": "Dieťa", "color": "#FFFFFF"},
+    #               {"uid": "9b4977b9-55f8-4a07-86b3-e353d07b45f7", "parent": "62268daa-0a83-4fc2-af46-2ec21a498180",
+    #                "child": "e3f41325-a8ca-4c88-b873-d792f8030309", "name": "Sestra", "color": "#FFFFFF"}]}
+    # e = Exercise('Lisa píše priania na darčeky ale nevie si spomenúť na svoje tety. Pomôž jej.',
+    #              'Označ tety Lisy.',
+    #              family, ["e3f41325-a8ca-4c88-b873-d792f8030309", "62268daa-0a83-4fc2-af46-2ec21a498180"])
+    # t.exercises.append(e)
+    #
+    # # 8. otazka
+    # family = {"persons": [
+    #     {"uid": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42", "x": "280", "y": "245", "name": "Homer", "color": "#F79F1F"},
+    #     {"uid": "7d1dca26-d678-492d-ad22-08b8e20fed5d", "x": "485", "y": "267", "name": "Marge", "color": "#0652DD"},
+    #     {"uid": "960a90f3-cea5-41db-af45-ae88aaabf391", "x": "148", "y": "410", "name": "Bart", "color": "#EE5A24"},
+    #     {"uid": "6c90a9ee-1266-4faf-b7e7-30c42250f6e4", "x": "357", "y": "418", "name": "Lisa", "color": "#BFBFBF"},
+    #     {"uid": "2b6696b0-1a0b-444a-921b-28a2148a4381", "x": "528", "y": "441", "name": "Maggie", "color": "#12CBC4"},
+    #     {"uid": "ac7dbfb0-2489-4897-a239-c46c03139285", "x": "175", "y": "162", "name": "Abe", "color": "#A3CB38"},
+    #     {"uid": "d4100bf3-9652-4242-b73f-a7049d96ecc3", "x": "335", "y": "133", "name": "Mona", "color": "#ED4C67"},
+    #     {"uid": "fdf38fe8-2618-4e8a-9163-e7fd03b3cf74", "x": "74", "y": "248", "name": "Herb", "color": "#833471"},
+    #     {"uid": "e3f41325-a8ca-4c88-b873-d792f8030309", "x": "501", "y": "131", "name": "Patty", "color": "#D980FA"},
+    #     {"uid": "62268daa-0a83-4fc2-af46-2ec21a498180", "x": "677", "y": "144", "name": "Selma", "color": "#D980FA"},
+    #     {"uid": "459e50dc-23af-4d17-b8fe-72150ce51755", "x": "655", "y": "297", "name": "Ling", "color": "#FFC312"}],
+    #           "relations": [
+    #               {"uid": "3bb07dc1-e6b2-4004-988b-16b792559b62", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #                "child": "7d1dca26-d678-492d-ad22-08b8e20fed5d", "name": "Manzel", "color": "#FFFFFF"},
+    #               {"uid": "937aebb0-6eb0-424c-90fb-3770214e1f80", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #                "child": "960a90f3-cea5-41db-af45-ae88aaabf391", "name": "Syn", "color": "#FFFFFF"},
+    #               {"uid": "93714447-72cd-4900-9fbe-de342051ea1d", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #                "child": "6c90a9ee-1266-4faf-b7e7-30c42250f6e4", "name": "Dcera", "color": "#FFFFFF"},
+    #               {"uid": "bb9ebb22-0f2e-4d3b-935e-22621320b2aa", "parent": "7d1dca26-d678-492d-ad22-08b8e20fed5d",
+    #                "child": "2b6696b0-1a0b-444a-921b-28a2148a4381", "name": "Dcera", "color": "#FFFFFF"},
+    #               {"uid": "dc782299-e9cc-4e6a-9399-a5c808d663e5", "parent": "ac7dbfb0-2489-4897-a239-c46c03139285",
+    #                "child": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42", "name": "Syn", "color": "#FFFFFF"},
+    #               {"uid": "aad8c585-22c2-4c52-872c-470a5d971e11", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #                "child": "d4100bf3-9652-4242-b73f-a7049d96ecc3", "name": "Mama", "color": "#FFFFFF"},
+    #               {"uid": "b752e4f9-60b8-421f-8965-8fddd6f5c9a4", "parent": "fdf38fe8-2618-4e8a-9163-e7fd03b3cf74",
+    #                "child": "ac7dbfb0-2489-4897-a239-c46c03139285", "name": "Otec", "color": "#FFFFFF"},
+    #               {"uid": "c28dc1a8-1fa7-4095-928c-120c82834b84", "parent": "e3f41325-a8ca-4c88-b873-d792f8030309",
+    #                "child": "7d1dca26-d678-492d-ad22-08b8e20fed5d", "name": "Sestra", "color": "#FFFFFF"},
+    #               {"uid": "a957b22c-94a7-438c-84b9-ecb95fdcae17", "parent": "62268daa-0a83-4fc2-af46-2ec21a498180",
+    #                "child": "459e50dc-23af-4d17-b8fe-72150ce51755", "name": "Dieťa", "color": "#FFFFFF"},
+    #               {"uid": "9b4977b9-55f8-4a07-86b3-e353d07b45f7", "parent": "62268daa-0a83-4fc2-af46-2ec21a498180",
+    #                "child": "e3f41325-a8ca-4c88-b873-d792f8030309", "name": "Sestra", "color": "#FFFFFF"}]}
+    # e = Exercise('Ling bola len nedávno adoptovaná a chcela by sa zahrať so svojimi príbuynými.',
+    #              'Označ všetkých bratrancov a sesternice Ling.',
+    #              family, ["960a90f3-cea5-41db-af45-ae88aaabf391", "6c90a9ee-1266-4faf-b7e7-30c42250f6e4",
+    #                       "2b6696b0-1a0b-444a-921b-28a2148a4381"])
+    # t.exercises.append(e)
+    #
+    # # 9. otazka
+    # family = {"persons": [
+    #     {"uid": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42", "x": "280", "y": "245", "name": "Homer", "color": "#F79F1F"},
+    #     {"uid": "7d1dca26-d678-492d-ad22-08b8e20fed5d", "x": "485", "y": "267", "name": "Marge", "color": "#0652DD"},
+    #     {"uid": "960a90f3-cea5-41db-af45-ae88aaabf391", "x": "148", "y": "410", "name": "Bart", "color": "#EE5A24"},
+    #     {"uid": "6c90a9ee-1266-4faf-b7e7-30c42250f6e4", "x": "357", "y": "418", "name": "Lisa", "color": "#BFBFBF"},
+    #     {"uid": "2b6696b0-1a0b-444a-921b-28a2148a4381", "x": "528", "y": "441", "name": "Maggie", "color": "#12CBC4"},
+    #     {"uid": "ac7dbfb0-2489-4897-a239-c46c03139285", "x": "175", "y": "162", "name": "Abe", "color": "#A3CB38"},
+    #     {"uid": "d4100bf3-9652-4242-b73f-a7049d96ecc3", "x": "335", "y": "133", "name": "Mona", "color": "#ED4C67"},
+    #     {"uid": "fdf38fe8-2618-4e8a-9163-e7fd03b3cf74", "x": "74", "y": "248", "name": "Herb", "color": "#833471"},
+    #     {"uid": "e3f41325-a8ca-4c88-b873-d792f8030309", "x": "501", "y": "131", "name": "Patty", "color": "#D980FA"},
+    #     {"uid": "62268daa-0a83-4fc2-af46-2ec21a498180", "x": "677", "y": "144", "name": "Selma", "color": "#D980FA"},
+    #     {"uid": "459e50dc-23af-4d17-b8fe-72150ce51755", "x": "655", "y": "297", "name": "Ling", "color": "#FFC312"},
+    #     {"uid": "385ba888-8884-4942-b6df-359a393555e6", "x": "183", "y": "537", "name": "Spasitel", "color": "#006266"},
+    #     {"uid": "454987db-1d60-46ca-b15e-17d701028bef", "x": "358", "y": "536", "name": "Snehulka", "color": "#FFFFFF"},
+    #     {"uid": "36205664-a47a-4efe-8ab6-3e938dccd811", "x": "572", "y": "542", "name": "Milhouse",
+    #      "color": "#1289A7"}], "relations": [
+    #     {"uid": "3bb07dc1-e6b2-4004-988b-16b792559b62", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #      "child": "7d1dca26-d678-492d-ad22-08b8e20fed5d", "name": "Manzel", "color": "#FFFFFF"},
+    #     {"uid": "937aebb0-6eb0-424c-90fb-3770214e1f80", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #      "child": "960a90f3-cea5-41db-af45-ae88aaabf391", "name": "Syn", "color": "#FFFFFF"},
+    #     {"uid": "93714447-72cd-4900-9fbe-de342051ea1d", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #      "child": "6c90a9ee-1266-4faf-b7e7-30c42250f6e4", "name": "Dcera", "color": "#FFFFFF"},
+    #     {"uid": "bb9ebb22-0f2e-4d3b-935e-22621320b2aa", "parent": "7d1dca26-d678-492d-ad22-08b8e20fed5d",
+    #      "child": "2b6696b0-1a0b-444a-921b-28a2148a4381", "name": "Dcera", "color": "#FFFFFF"},
+    #     {"uid": "dc782299-e9cc-4e6a-9399-a5c808d663e5", "parent": "ac7dbfb0-2489-4897-a239-c46c03139285",
+    #      "child": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42", "name": "Syn", "color": "#FFFFFF"},
+    #     {"uid": "aad8c585-22c2-4c52-872c-470a5d971e11", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #      "child": "d4100bf3-9652-4242-b73f-a7049d96ecc3", "name": "Mama", "color": "#FFFFFF"},
+    #     {"uid": "b752e4f9-60b8-421f-8965-8fddd6f5c9a4", "parent": "fdf38fe8-2618-4e8a-9163-e7fd03b3cf74",
+    #      "child": "ac7dbfb0-2489-4897-a239-c46c03139285", "name": "Otec", "color": "#FFFFFF"},
+    #     {"uid": "c28dc1a8-1fa7-4095-928c-120c82834b84", "parent": "e3f41325-a8ca-4c88-b873-d792f8030309",
+    #      "child": "7d1dca26-d678-492d-ad22-08b8e20fed5d", "name": "Sestra", "color": "#FFFFFF"},
+    #     {"uid": "a957b22c-94a7-438c-84b9-ecb95fdcae17", "parent": "62268daa-0a83-4fc2-af46-2ec21a498180",
+    #      "child": "459e50dc-23af-4d17-b8fe-72150ce51755", "name": "Dieťa", "color": "#FFFFFF"},
+    #     {"uid": "9b4977b9-55f8-4a07-86b3-e353d07b45f7", "parent": "62268daa-0a83-4fc2-af46-2ec21a498180",
+    #      "child": "e3f41325-a8ca-4c88-b873-d792f8030309", "name": "Sestra", "color": "#FFFFFF"},
+    #     {"uid": "cde46cde-7361-47ab-bb81-b9cd14e453f5", "parent": "960a90f3-cea5-41db-af45-ae88aaabf391",
+    #      "child": "385ba888-8884-4942-b6df-359a393555e6", "name": "Pes", "color": "#FFFFFF"},
+    #     {"uid": "cb9ddf97-0bc5-4aa1-8bc3-99b90d2197d9", "parent": "6c90a9ee-1266-4faf-b7e7-30c42250f6e4",
+    #      "child": "454987db-1d60-46ca-b15e-17d701028bef", "name": "Mačka", "color": "#FFFFFF"},
+    #     {"uid": "c0eafe45-eb7d-4dd8-ac4f-ef1a1861480e", "parent": "6c90a9ee-1266-4faf-b7e7-30c42250f6e4",
+    #      "child": "36205664-a47a-4efe-8ab6-3e938dccd811", "name": "Nápadník", "color": "#FFFFFF"}]}
+    # e = Exercise('Každý je vždy rád keď vidí svojich rodičov.',
+    #              'Označ všetkých kto má na grafe rodičov.',
+    #              family, ["960a90f3-cea5-41db-af45-ae88aaabf391", "6c90a9ee-1266-4faf-b7e7-30c42250f6e4",
+    #                       "2b6696b0-1a0b-444a-921b-28a2148a4381", "fdf38fe8-2618-4e8a-9163-e7fd03b3cf74",
+    #                       "459e50dc-23af-4d17-b8fe-72150ce51755", "acf51105-c6d1-484f-8bf6-aa65cd6dbd42"])
+    # t.exercises.append(e)
+    #
+    # # 10. otazka
+    # family = {"persons": [
+    #     {"uid": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42", "x": "280", "y": "245", "name": "Homer", "color": "#F79F1F"},
+    #     {"uid": "7d1dca26-d678-492d-ad22-08b8e20fed5d", "x": "485", "y": "267", "name": "Marge", "color": "#0652DD"},
+    #     {"uid": "960a90f3-cea5-41db-af45-ae88aaabf391", "x": "148", "y": "410", "name": "Bart", "color": "#EE5A24"},
+    #     {"uid": "6c90a9ee-1266-4faf-b7e7-30c42250f6e4", "x": "357", "y": "418", "name": "Lisa", "color": "#BFBFBF"},
+    #     {"uid": "2b6696b0-1a0b-444a-921b-28a2148a4381", "x": "528", "y": "441", "name": "Maggie", "color": "#12CBC4"},
+    #     {"uid": "ac7dbfb0-2489-4897-a239-c46c03139285", "x": "175", "y": "162", "name": "Abe", "color": "#A3CB38"},
+    #     {"uid": "d4100bf3-9652-4242-b73f-a7049d96ecc3", "x": "335", "y": "133", "name": "Mona", "color": "#ED4C67"},
+    #     {"uid": "fdf38fe8-2618-4e8a-9163-e7fd03b3cf74", "x": "74", "y": "248", "name": "Herb", "color": "#833471"},
+    #     {"uid": "e3f41325-a8ca-4c88-b873-d792f8030309", "x": "501", "y": "131", "name": "Patty", "color": "#D980FA"},
+    #     {"uid": "62268daa-0a83-4fc2-af46-2ec21a498180", "x": "677", "y": "144", "name": "Selma", "color": "#D980FA"},
+    #     {"uid": "459e50dc-23af-4d17-b8fe-72150ce51755", "x": "655", "y": "297", "name": "Ling", "color": "#FFC312"},
+    #     {"uid": "385ba888-8884-4942-b6df-359a393555e6", "x": "183", "y": "537", "name": "Spasitel", "color": "#006266"},
+    #     {"uid": "454987db-1d60-46ca-b15e-17d701028bef", "x": "358", "y": "536", "name": "Snehulka", "color": "#FFFFFF"},
+    #     {"uid": "36205664-a47a-4efe-8ab6-3e938dccd811", "x": "572", "y": "542", "name": "Milhouse",
+    #      "color": "#1289A7"}], "relations": [
+    #     {"uid": "3bb07dc1-e6b2-4004-988b-16b792559b62", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #      "child": "7d1dca26-d678-492d-ad22-08b8e20fed5d", "name": "Manzel", "color": "#FFFFFF"},
+    #     {"uid": "937aebb0-6eb0-424c-90fb-3770214e1f80", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #      "child": "960a90f3-cea5-41db-af45-ae88aaabf391", "name": "Syn", "color": "#FFFFFF"},
+    #     {"uid": "93714447-72cd-4900-9fbe-de342051ea1d", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #      "child": "6c90a9ee-1266-4faf-b7e7-30c42250f6e4", "name": "Dcera", "color": "#FFFFFF"},
+    #     {"uid": "bb9ebb22-0f2e-4d3b-935e-22621320b2aa", "parent": "7d1dca26-d678-492d-ad22-08b8e20fed5d",
+    #      "child": "2b6696b0-1a0b-444a-921b-28a2148a4381", "name": "Dcera", "color": "#FFFFFF"},
+    #     {"uid": "dc782299-e9cc-4e6a-9399-a5c808d663e5", "parent": "ac7dbfb0-2489-4897-a239-c46c03139285",
+    #      "child": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42", "name": "Syn", "color": "#FFFFFF"},
+    #     {"uid": "aad8c585-22c2-4c52-872c-470a5d971e11", "parent": "acf51105-c6d1-484f-8bf6-aa65cd6dbd42",
+    #      "child": "d4100bf3-9652-4242-b73f-a7049d96ecc3", "name": "Mama", "color": "#FFFFFF"},
+    #     {"uid": "b752e4f9-60b8-421f-8965-8fddd6f5c9a4", "parent": "fdf38fe8-2618-4e8a-9163-e7fd03b3cf74",
+    #      "child": "ac7dbfb0-2489-4897-a239-c46c03139285", "name": "Otec", "color": "#FFFFFF"},
+    #     {"uid": "c28dc1a8-1fa7-4095-928c-120c82834b84", "parent": "e3f41325-a8ca-4c88-b873-d792f8030309",
+    #      "child": "7d1dca26-d678-492d-ad22-08b8e20fed5d", "name": "Sestra", "color": "#FFFFFF"},
+    #     {"uid": "a957b22c-94a7-438c-84b9-ecb95fdcae17", "parent": "62268daa-0a83-4fc2-af46-2ec21a498180",
+    #      "child": "459e50dc-23af-4d17-b8fe-72150ce51755", "name": "Dieťa", "color": "#FFFFFF"},
+    #     {"uid": "9b4977b9-55f8-4a07-86b3-e353d07b45f7", "parent": "62268daa-0a83-4fc2-af46-2ec21a498180",
+    #      "child": "e3f41325-a8ca-4c88-b873-d792f8030309", "name": "Sestra", "color": "#FFFFFF"},
+    #     {"uid": "cde46cde-7361-47ab-bb81-b9cd14e453f5", "parent": "960a90f3-cea5-41db-af45-ae88aaabf391",
+    #      "child": "385ba888-8884-4942-b6df-359a393555e6", "name": "Pes", "color": "#FFFFFF"},
+    #     {"uid": "cb9ddf97-0bc5-4aa1-8bc3-99b90d2197d9", "parent": "6c90a9ee-1266-4faf-b7e7-30c42250f6e4",
+    #      "child": "454987db-1d60-46ca-b15e-17d701028bef", "name": "Mačka", "color": "#FFFFFF"},
+    #     {"uid": "c0eafe45-eb7d-4dd8-ac4f-ef1a1861480e", "parent": "6c90a9ee-1266-4faf-b7e7-30c42250f6e4",
+    #      "child": "36205664-a47a-4efe-8ab6-3e938dccd811", "name": "Nápadník", "color": "#FFFFFF"}]}
+    # e = Exercise('nieco',
+    #              'Označ vzťahy, ktoré určujú vekové rozdiely o viac ako jednu generáciu.',
+    #              family, ["937aebb0-6eb0-424c-90fb-3770214e1f80", "93714447-72cd-4900-9fbe-de342051ea1d",
+    #                       "bb9ebb22-0f2e-4d3b-935e-22621320b2aa", "dc782299-e9cc-4e6a-9399-a5c808d663e5",
+    #                       "aad8c585-22c2-4c52-872c-470a5d971e11", "b752e4f9-60b8-421f-8965-8fddd6f5c9a4",
+    #                       "a957b22c-94a7-438c-84b9-ecb95fdcae17", ])
+    # t.exercises.append(e)
+    #
+    # t.save('./tests/simpson.json')
     # t.save('./tests/simpson.json')
 

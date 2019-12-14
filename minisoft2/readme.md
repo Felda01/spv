@@ -18,5 +18,6 @@
 * užívateľ si môže vyskúsať testovací režim na sade úloh v súbore tests/simpson.json
 * pomocou myši si vykliká správnu odpoveď a následne si to môže systémom nechať skontrolovať
 		 
-**TODO** 
-* vlastná tvorba testvacích, príbehov a k nim jeho úloh
+**Rozdiely oproti špecifikácii** 
+* aplikácia neposkytuje exportovanie do obrázku
+* vyhodnotenie testu - užívateľ spúšťa vyhodnotenie na celý test
