@@ -161,10 +161,9 @@ class Relation(Item):
 
 
 class Exercise:
-    def __init__(self, story_text='', question='', graph_file='', answers=None, uid=''):
+    def __init__(self, story_text='', question='', graph='', answers=None, uid=''):
         self.story_text = story_text
         self.question = question
-        self.graph_file = graph_file
         self.graph = dict()
         self.graph['persons'] = dict()
         self.graph['relations'] = dict()
@@ -178,8 +177,8 @@ class Exercise:
             self.uid = uid
         else:
             self.uid = str(uuid.uuid4())
-        if self.graph_file != '':
-            self.load_graph()
+
+        self.load_graph(graph)
 
     def draw_exercise(self, canvas):
         w = Message(canvas, text=self.story_text, bg='white', width=180, font=Main.FONT_STYLE)
@@ -193,28 +192,38 @@ class Exercise:
         for item in self.objects:
             item.place_forget()
 
-    def load_graph(self):
-        if os.path.isfile(self.graph_file):
-            with open(self.graph_file, 'r', encoding='utf8') as file:
-                loaded_graph_json = file.read()
-                graph_data = json.loads(loaded_graph_json)
-                uid_persons = dict()
+    def load_graph(self, graph_data):
+        # graph_data = json.loads(graph_data)
+        uid_persons = dict()
 
-                for person_data in graph_data['persons']:
-                    person = Person()
-                    correct = person.load(person_data)
-                    if correct:
-                        uid_persons[str(person_data['uid'])] = person
-                        self.add_person(person)
+        for person_data in graph_data['persons']:
+            person = Person()
+            correct = person.load(person_data)
+            if correct:
+                uid_persons[str(person_data['uid'])] = person
+                self.add_person(person)
 
-                for relation_data in graph_data['relations']:
-                    relation = Relation()
-                    if uid_persons[str(relation_data['parent'])] and uid_persons[str(relation_data['child'])]:
-                        relation_data['parent'] = uid_persons[str(relation_data['parent'])]
-                        relation_data['child'] = uid_persons[str(relation_data['child'])]
-                        correct = relation.load(relation_data)
-                        if correct:
-                            self.add_relation(relation)
+        for relation_data in graph_data['relations']:
+            relation = Relation()
+            if uid_persons[str(relation_data['parent'])] and uid_persons[str(relation_data['child'])]:
+                relation_data['parent'] = uid_persons[str(relation_data['parent'])]
+                relation_data['child'] = uid_persons[str(relation_data['child'])]
+                correct = relation.load(relation_data)
+                if correct:
+                    self.add_relation(relation)
+
+    def save_graph(self):
+        result_json = '{"persons": ['
+
+        result_json += ','.join([self.graph['persons'][person_uid].save() for person_uid in self.graph['persons']])
+        result_json += '], "relations" : ['
+
+        result_json += ','.join(
+            [self.graph['relations'][relation_uid].save() for relation_uid in self.graph['relations']])
+        result_json += ']}'
+
+        return result_json
+
 
     def add_relation(self, relation: Relation):
         if relation.uid not in self.graph['relations']:
@@ -225,12 +234,12 @@ class Exercise:
             self.graph['persons'][str(person.uid)] = person
 
     def load(self, properties):
-        if 'uid' not in properties or 'story_text' not in properties or 'question' not in properties or 'graph_file' not in properties or 'answers' not in properties:
+        if 'uid' not in properties or 'story_text' not in properties or 'question' not in properties or 'graph' not in properties or 'answers' not in properties:
             return False
         answers = []
         for answer in properties['answers']:
             answers.append(answer)
-        self.__init__(properties['story_text'], properties['question'], properties['graph_file'], answers, properties['uid'])
+        self.__init__(properties['story_text'], properties['question'], properties['graph'], answers, properties['uid'])
         return True
 
     def save(self):
@@ -245,7 +254,7 @@ class Exercise:
             result += ']'
             return result
 
-        return '{"uid" : "' + str(self.uid) + '", "story_text" : "' + self.story_text + '","question" : "' + self.question + '","graph_file" : "' + str(self.graph_file) + '","answers" : ' + get_answers(self.answers) + '}'
+        return '{"uid" : "' + str(self.uid) + '", "story_text" : "' + self.story_text + '","question" : "' + self.question + '","graph" : "' + str(self.save_graph()) + '","answers" : ' + get_answers(self.answers) + '}'
 
     def evaluate(self):
         result = set()
