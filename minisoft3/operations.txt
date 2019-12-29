@@ -4,3 +4,4 @@ move_up#row#-1
 move_down#row#1
 heal#life#1
 damage#life#-1
+goal#is_in_goal#1
