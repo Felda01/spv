@@ -1,85 +1,40 @@
 from tkinter import *
 from tkinter import messagebox
 from tkinter import filedialog
+import os
 
 class Cell:
-    def __init__(self, emoji):
+    def __init__(self, emoji, operations):
         self.emoji = emoji
+        self.operations = operations
 
-    def operation(self):
-        pass
-
-
-class UpCell(Cell):
-    def __init__(self, emoji):
-        super(emoji)
-
-    def operation(self):
-        self.emoji.move(dRow=-1)
-
-
-class DownCell(Cell):
-    def __init__(self, emoji):
-        super(emoji)
-
-    def operation(self):
-        self.emoji.move(dRow=-1)
-
-
-class LeftCell(Cell):
-    def __init__(self, emoji):
-        super(emoji)
-
-    def operation(self):
-        self.emoji.move(dRow=-1)
-
-
-class RightCell(Cell):
-    def __init__(self, emoji):
-        super(emoji)
-
-    def operation(self):
-        self.emoji.move(dRow=-1)
-
-
-class FireCell(Cell):
-    def __init__(self, emoji):
-        super(emoji)
-
-    def operation(self):
-        self.emoji.damage()
-
-
-class HealCell(Cell):
-    def __init__(self, emoji):
-        super(emoji)
-
-    def operation(self):
-        self.emoji.heal()
-
-class EmptyCell(Cell):
-    def __init__(self, emoji):
-        super(emoji)
-
-    def operation(self):
-        pass
+    def execute(self):
+        for op in self.operations:
+            operation = Main.OPERATIONS[op]
+            for att in operation['attributes']:
+                if att[0] == 'life':
+                    self.emoji.damage_or_heal(att[1])
 
 
 class Emoji:
     def __init__(self, life, stamina):
-        self.x = 0
-        self.y = 0
-        self.life = life
-        self.stamina = stamina
+        self.attributes = dict()
+        self.attributes['row'] = 0
+        self.attributes['col'] = 0
+        self.attributes['life'] = life
+        self.attributes['stamina'] = stamina
 
     def move(self, dRow=0, dCol=0):
-        pass
+        if self.attributes['stamina'] > 0:
+            self.attributes['stamina'] -= 1
+            self.attributes['row'] += dRow
+            self.attributes['col'] += dCol
 
-    def damage(self):
-        pass
-
-    def heal(self):
-        pass
+    def damage_or_heal(self, lifes=-1):
+        if self.attributes['life'] + lifes >= 0:
+            self.attributes['life'] += lifes
+            return True
+        return False
 
 class Main:
     WINDOW_WIDTH = 1000
@@ -90,6 +45,7 @@ class Main:
     BOTTOM_HEIGHT = WINDOW_HEIGHT - TOP_HEIGHT
     CELL_WIDTH = 64
     CELL_HEIGHT = 64
+    OPERATIONS = dict()
 
     def __init__(self):
         self.window = Tk()
@@ -99,21 +55,49 @@ class Main:
         # TOP
         self.canvas_top = Canvas(self.frame, width=self.TOP_WIDTH, height=self.TOP_HEIGHT, bg='green')
         self.canvas_top.pack(side=TOP, expand=False)
-        # Bottom
+        # BOTTOM
         self.canvas_bottom = Canvas(self.frame, width=self.BOTTOM_WIDTH, height=self.BOTTOM_HEIGHT, bg='tan')
         self.canvas_bottom.pack(side=BOTTOM, expand=False)
         # BUTTONS
         b = Button(self.canvas_top, text='Vyber mapu', command=self.select_file)
         b.place(x=10, y=10)
 
-        self.map = [[1,2,3],[5,6]]
+        self.load_operations()
+        print(self.OPERATIONS)
+        self.map = []
+        self.emoji = Emoji
         self.paint()
+
+    def load_operations(self):
+        self.OPERATIONS['empty'] = dict()
+        self.OPERATIONS['empty']['attributes'] = []
+        self.OPERATIONS['empty']['image'] = PhotoImage(file='./minisoft3/images/empty.png')
+        if os.path.isfile('./minisoft3/operations.txt'):
+            with open('./minisoft3/operations.txt', 'r') as file:
+                for row in file:
+                    operation = row.split('#')
+                    name = operation[0]
+                    attributes = operation[1].split()
+                    values = operation[2].split()
+                    if len(attributes) == len(values) and len(values) > 0:
+                        self.OPERATIONS[name] = dict()
+                        self.OPERATIONS[name]['attributes'] = []
+                        self.OPERATIONS[name]['image'] = PhotoImage(file='./minisoft3/images/'+name+'.png')
+                        for i in range(len(attributes)):
+                            self.OPERATIONS[name]['attributes'].append([attributes[i], int(values[i])])
 
 
     def start_game(self, filename):
         with open(filename, 'r') as file:
             for row in file:
-                pass
+                line = row.split('#')
+                temp = []
+                for col in row.split('#'):
+                    if col == '?':
+                        temp.append(Cell(self.emoji, ['empty']))
+                    temp.append(Cell(self.emoji, col.split()))
+                self.map.append(temp)
+        self.paint()
 
     def select_file(self):
         filename = filedialog.askopenfilename(initialdir=".")
@@ -122,9 +106,11 @@ class Main:
             self.start_game(filename)
     
     def paint(self):
+        self.canvas_bottom.delete('all')
         for i in range(len(self.map)):
             for j in range(len(self.map[i])):
-                self.canvas_bottom.create_rectangle(20+j*self.CELL_WIDTH,20+i*self.CELL_HEIGHT,20+(j+1)*self.CELL_WIDTH,20+(i+1)*self.CELL_HEIGHT)
+                for operation in self.map[i][j].operations:
+                    self.canvas_bottom.create_image((j+1.5)*self.CELL_WIDTH,(i+1.5)*self.CELL_HEIGHT,image=self.OPERATIONS[operation]['image'])
 
 
 

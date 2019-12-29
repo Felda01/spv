@@ -1,0 +1,6 @@
+move_left#col#-1
+move_right#col#1
+move_up#row#-1
+move_down#row#1
+heal#life#1
+damage#life#-1
