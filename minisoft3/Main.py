@@ -1,12 +1,19 @@
 from tkinter import *
 from tkinter import messagebox
 from tkinter import filedialog
+from tkinter import simpledialog
 import os
 from functools import partial
 
 PATH_PROJECT = './minisoft3/'
 PATH_IMAGES = PATH_PROJECT+'images/'
 PATH_IMAGES_PLAYER = PATH_IMAGES + 'player/'
+TRANSLATOR = {'heal':'život +1', 
+              'damage':'život -1', 
+              'move_right':'doprava', 
+              'move_left':'doľava', 
+              'move_up':'hore', 
+              'move_down':'dole'}
 
 class Cell:
     def __init__(self, emoji, operations):
@@ -107,7 +114,13 @@ class Main:
         b = Button(self.canvas_top, text='Vyber mapu', command=self.select_file)
         b.place(x=10, y=10)
         b = Button(self.canvas_top, text='Spusti', command=self.start_move)
-        b.place(x=100, y=10)
+        b.place(x=90, y=10)
+        b = Button(self.canvas_top, text='Znova', command=self.reset)
+        b.place(x=138, y=10)
+        b = Button(self.canvas_top, text='Vytvor mapu', command=self.create_map)
+        b.place(x=188, y=10)
+        b = Button(self.canvas_top, text='Ulož mapu', command=self.select_file_save)
+        b.place(x=272, y=10)
         # BINDINGS
         self.canvas_bottom.bind('<Button-1>', self.choosing_menu)
 
@@ -116,20 +129,22 @@ class Main:
         # MENU
         self.menu = Menu(self.canvas_bottom, tearoff=0)
         for operation in self.OPERATIONS:
-            if operation not in ['goal']:
-                self.menu.add_command(label=operation, command=partial(self.add_operation, operation))
+            if operation not in ['goal', 'empty']:
+                self.menu.add_command(label=TRANSLATOR[operation], command=partial(self.add_operation, operation))
         
         self.map = []
         self.emoji = None
         self.selected_cell = None
+        self.filename = None
+        self.was_reset = False
         self.paint()
 
     def choosing_menu(self,event):
+        self.selected_cell = None
         col = (event.x - self.CELL_WIDTH) // self.CELL_WIDTH
         row = (event.y - self.CELL_HEIGHT) // self.CELL_HEIGHT
         if 0 <= row < len(self.map) and 0 <= col < len(self.map[row]) and self.map[row][col].is_changeable:
             self.selected_cell = self.map[row][col]
-            print(self.selected_cell.operations)
         if self.selected_cell is None:
             return
         try:
@@ -145,6 +160,35 @@ class Main:
                 self.selected_cell.operations.append(operation)
             self.selected_cell = None
             self.paint()
+    
+    def reset(self):
+        if self.emoji is not None:
+            self.start_game(self.filename)
+            self.was_reset = True
+
+    def create_map(self):
+        rows = simpledialog.askinteger(title="Riadky", prompt='Počet riadkov')
+        cols = simpledialog.askinteger(title="Stĺpce", prompt='Počet stĺpcov')
+        self.map = []
+        self.emoji = None
+        for i in range(rows):
+            temp = []
+            for j in range(cols):
+                temp.append(Cell(self.emoji,[]))
+            self.map.append(temp)
+        self.paint()
+
+    def save_map(self,filename):
+        with open(filename, 'w') as file:
+            for row in self.map:
+                file.write('#'.join([' '.join(cell.operations) for cell in row])+'\n')
+
+
+    def select_file_save(self):
+        filename = filedialog.asksaveasfile(mode='w', defaultextension=".json")
+        if filename is not None and filename.name:
+            self.save_map(filename.name)
+
 
     def load_operations(self):
         self.OPERATIONS['empty'] = dict()
@@ -166,6 +210,7 @@ class Main:
 
 
     def start_game(self, filename):
+        self.filename = filename
         self.map = []
         self.emoji = Emoji(3,10)
         with open(filename, 'r') as file:
@@ -199,6 +244,9 @@ class Main:
             self.start_game(filename)
 
     def animate(self):
+        if self.was_reset:
+            self.was_reset = False
+            return
         if self.emoji is not None and self.emoji.can_execute():
             self.map[self.emoji.attributes['row']][self.emoji.attributes['col']].execute_move()
             self.map[self.emoji.attributes['row']][self.emoji.attributes['col']].execute_effects()
