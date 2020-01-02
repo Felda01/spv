@@ -184,7 +184,7 @@ class Main:
         with open(filename, 'w') as file:
             json_result = '{"map": ['
 
-            json_result += ','.join([','.join(['{"operations": ["' + '","'.join(cell.operations) + '"]}' for cell in row]) for row in self.map])
+            json_result += '],['.join([','.join(['{"operations": ["' + '","'.join(cell.operations) + '"]}' for cell in row]) for row in self.map])
             # for row in self.map:
             #     json_result += ','.join(['{"operations": ["' + '","'.join(cell.operations) + '"]}' for cell in row])
                 # file.write('#'.join([' '.join(cell.operations) for cell in row])+'\n')
