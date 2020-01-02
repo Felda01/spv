@@ -4,16 +4,18 @@ from tkinter import filedialog
 from tkinter import simpledialog
 import os
 from functools import partial
+import json
 
 PATH_PROJECT = './minisoft3/'
 PATH_IMAGES = PATH_PROJECT+'images/'
 PATH_IMAGES_PLAYER = PATH_IMAGES + 'player/'
-TRANSLATOR = {'heal':'život +1', 
-              'damage':'život -1', 
-              'move_right':'doprava', 
-              'move_left':'doľava', 
-              'move_up':'hore', 
-              'move_down':'dole'}
+TRANSLATOR = {'heal': 'život +1',
+              'damage': 'život -1',
+              'move_right': 'doprava',
+              'move_left': 'doľava',
+              'move_up': 'hore',
+              'move_down': 'dole'}
+
 
 class Cell:
     def __init__(self, emoji, operations):
@@ -28,7 +30,7 @@ class Cell:
             temp = set()
             for att in operation['attributes']:
                 temp.add(att[0])
-            if temp & set(['life','is_in_goal']) == set():
+            if temp & {'life', 'is_in_goal'} == set():
                 for att in operation['attributes']:
                     if att[0] == 'life':
                         self.emoji.damage_or_heal(att[1])
@@ -41,13 +43,12 @@ class Cell:
             temp = set()
             for att in operation['attributes']:
                 temp.add(att[0])
-            if temp & set(['life','is_in_goal']) != set():
+            if temp & {'life', 'is_in_goal'} != set():
                 for att in operation['attributes']:
                     if att[0] == 'life':
                         self.emoji.damage_or_heal(att[1])
                     else:
                         self.emoji.attributes[att[0]] += att[1]
-                
 
 
 class Emoji:
@@ -68,15 +69,15 @@ class Emoji:
     def can_execute(self):
         return self.attributes['life'] > 0 and self.attributes['is_in_goal'] == 0 and self.attributes['stamina'] > 0
 
-    def move(self, dRow=0, dCol=0):
+    def move(self, d_row=0, d_col=0):
         if self.attributes['stamina'] > 0:
             self.attributes['stamina'] -= 1
-            self.attributes['row'] += dRow
-            self.attributes['col'] += dCol
+            self.attributes['row'] += d_row
+            self.attributes['col'] += d_col
 
-    def damage_or_heal(self, lifes):
-        if self.attributes['life'] + lifes >= 0 and self.attributes['life'] + lifes <= len(self.images)-2:
-            self.attributes['life'] += lifes
+    def damage_or_heal(self, lives):
+        if 0 <= self.attributes['life'] + lives <= len(self.images)-2:
+            self.attributes['life'] += lives
             return True
         return False
 
@@ -84,9 +85,10 @@ class Emoji:
         image = self.images[self.attributes['life']]
         if self.attributes['col'] == -1:
             image = self.images[-1]
-        canvas.create_image((self.attributes['col']+1.5)*Main.CELL_WIDTH,(self.attributes['row']+1.5)*Main.CELL_HEIGHT,image=image)
+        canvas.create_image((self.attributes['col']+1.5)*Main.CELL_WIDTH, (self.attributes['row']+1.5)*Main.CELL_HEIGHT, image=image)
         for i in range(self.attributes['life']):
-            canvas.create_image((i+0.5)*Main.CELL_WIDTH,0.5*Main.CELL_HEIGHT,image=self.life_image)
+            canvas.create_image((i+0.5)*Main.CELL_WIDTH, 0.5*Main.CELL_HEIGHT, image=self.life_image)
+
 
 class Main:
     WINDOW_WIDTH = 1000
@@ -103,7 +105,7 @@ class Main:
         self.window = Tk()
         self.window.title('Cestovatel')
         self.window.resizable(False, False)
-        self.frame = Frame(self.window,bg='black').pack()
+        self.frame = Frame(self.window, bg='black').pack()
         # TOP
         self.canvas_top = Canvas(self.frame, width=self.TOP_WIDTH, height=self.TOP_HEIGHT, bg='green')
         self.canvas_top.pack(side=TOP, expand=False)
@@ -139,7 +141,7 @@ class Main:
         self.was_reset = False
         self.paint()
 
-    def choosing_menu(self,event):
+    def choosing_menu(self, event):
         self.selected_cell = None
         col = (event.x - self.CELL_WIDTH) // self.CELL_WIDTH
         row = (event.y - self.CELL_HEIGHT) // self.CELL_HEIGHT
@@ -174,21 +176,23 @@ class Main:
         for i in range(rows):
             temp = []
             for j in range(cols):
-                temp.append(Cell(self.emoji,[]))
+                temp.append(Cell(self.emoji, []))
             self.map.append(temp)
         self.paint()
 
-    def save_map(self,filename):
+    def save_map(self, filename):
         with open(filename, 'w') as file:
+            json_result = '{"map": ['
             for row in self.map:
-                file.write('#'.join([' '.join(cell.operations) for cell in row])+'\n')
-
+                json_result += ','.join(['[{"operations": ["' + '","'.join(cell.operations) + '"]}]' for cell in row])
+                # file.write('#'.join([' '.join(cell.operations) for cell in row])+'\n')
+            json_result += ']}'
+            file.write(json_result)
 
     def select_file_save(self):
         filename = filedialog.asksaveasfile(mode='w', defaultextension=".json")
         if filename is not None and filename.name:
             self.save_map(filename.name)
-
 
     def load_operations(self):
         self.OPERATIONS['empty'] = dict()
@@ -208,24 +212,24 @@ class Main:
                         for i in range(len(attributes)):
                             self.OPERATIONS[name]['attributes'].append([attributes[i], int(values[i])])
 
-
     def start_game(self, filename):
         self.filename = filename
         self.map = []
-        self.emoji = Emoji(3,10)
+        self.emoji = Emoji(3, 10)
         with open(filename, 'r') as file:
-            for row in file:
-                line = row.split('#')
+            loaded_json = file.read()
+            json_data = json.loads(loaded_json)
+            for row in json_data:
                 temp = []
-                for col in row.split('#'):
-                    temp.append(Cell(self.emoji, col.split()))
+                for col in row:
+                    temp.append(Cell(self.emoji, col['operations']))
                 self.map.append(temp)
         self.paint()
 
     def are_all_cells_selected(self):
         for row in self.map:
             for col in row:
-                if col.operations == []:
+                if not col.operations:
                     return False
         return True
 
@@ -235,12 +239,12 @@ class Main:
             self.emoji.attributes['col'] = 0
             self.map[0][0].execute_effects()
             self.paint()
-            self.canvas_bottom.after(1000,self.animate)
+            self.canvas_bottom.after(1000, self.animate)
 
     def select_file(self):
         filename = filedialog.askopenfilename(initialdir=".")
         if filename:
-            self.infile = open(filename, "r")
+            infile = open(filename, "r")
             self.start_game(filename)
 
     def animate(self):
@@ -252,23 +256,22 @@ class Main:
             self.map[self.emoji.attributes['row']][self.emoji.attributes['col']].execute_effects()
             self.paint()
             self.canvas_bottom.update()
-            self.canvas_bottom.after(1000,self.animate)
+            self.canvas_bottom.after(1000, self.animate)
     
     def paint(self):
         self.canvas_bottom.delete('all')
         for i in range(len(self.map)):
             for j in range(len(self.map[i])):
                 if self.map[i][j].is_changeable:
-                    self.canvas_bottom.create_rectangle((j+1)*self.CELL_WIDTH,(i+1)*self.CELL_HEIGHT,(j+2)*self.CELL_WIDTH,(i+2)*self.CELL_HEIGHT,fill='yellowgreen')
+                    self.canvas_bottom.create_rectangle((j+1)*self.CELL_WIDTH, (i+1)*self.CELL_HEIGHT, (j+2)*self.CELL_WIDTH, (i+2)*self.CELL_HEIGHT, fill='yellowgreen')
                 else:
-                    self.canvas_bottom.create_rectangle((j+1)*self.CELL_WIDTH,(i+1)*self.CELL_HEIGHT,(j+2)*self.CELL_WIDTH,(i+2)*self.CELL_HEIGHT,fill='dodgerblue')
+                    self.canvas_bottom.create_rectangle((j+1)*self.CELL_WIDTH, (i+1)*self.CELL_HEIGHT, (j+2)*self.CELL_WIDTH, (i+2)*self.CELL_HEIGHT, fill='dodgerblue')
                 for operation in self.map[i][j].operations:
-                    self.canvas_bottom.create_image((j+1.5)*self.CELL_WIDTH,(i+1.5)*self.CELL_HEIGHT,image=self.OPERATIONS[operation]['image'])
-                if self.map[i][j].operations == []:
-                    self.canvas_bottom.create_image((j+1.5)*self.CELL_WIDTH,(i+1.5)*self.CELL_HEIGHT,image=self.OPERATIONS['empty']['image'])
+                    self.canvas_bottom.create_image((j+1.5)*self.CELL_WIDTH, (i+1.5)*self.CELL_HEIGHT, image=self.OPERATIONS[operation]['image'])
+                if not self.map[i][j].operations:
+                    self.canvas_bottom.create_image((j+1.5)*self.CELL_WIDTH, (i+1.5)*self.CELL_HEIGHT, image=self.OPERATIONS['empty']['image'])
         if self.emoji is not None:
             self.emoji.paint(self.canvas_bottom)
-
 
 
 if __name__ == "__main__":
