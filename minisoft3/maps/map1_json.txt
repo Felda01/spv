@@ -1,0 +1,1 @@
+{"map": [[{"operations": ["heal","move_right"]}, {"operations": ["move_right"]}, {"operations": ["damage","move_down"]}],[{"operations": []}, {"operations": ["move_left"]}, {"operations": ["heal","move_left"]}],[{"operations": ["damage","move_right"]}, {"operations": ["goal"]}, {"operations": ["move_left"]}]]}
