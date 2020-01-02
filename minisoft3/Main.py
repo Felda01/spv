@@ -5,6 +5,7 @@ from tkinter import simpledialog
 import os
 from functools import partial
 import json
+import re
 
 PATH_PROJECT = './minisoft3/'
 PATH_IMAGES = PATH_PROJECT+'images/'
@@ -156,10 +157,19 @@ class Main:
 
     def add_operation(self, operation):
         if self.selected_cell is not None:
-            if operation in self.selected_cell.operations:
-                self.selected_cell.operations.remove(operation)
-            else:
-                self.selected_cell.operations.append(operation)
+            r = re.compile('move_.*')
+            move_operations_in_selected_cell = list(filter(r.match, self.selected_cell.operations))
+
+            if move_operations_in_selected_cell:
+                for item in move_operations_in_selected_cell:
+                    self.selected_cell.operations.remove(item)
+
+            self.selected_cell.operations.append(operation)
+
+            # if operation in self.selected_cell.operations:
+            #     self.selected_cell.operations.remove(operation)
+            # else:
+            #     self.selected_cell.operations.append(operation)
             self.selected_cell = None
             self.paint()
     
@@ -183,11 +193,7 @@ class Main:
     def save_map(self, filename):
         with open(filename, 'w') as file:
             json_result = '{"map": [['
-
             json_result += '],['.join([','.join(['{"operations": ["' + '","'.join(cell.operations) + '"]}' for cell in row]) for row in self.map])
-            # for row in self.map:
-            #     json_result += ','.join(['{"operations": ["' + '","'.join(cell.operations) + '"]}' for cell in row])
-                # file.write('#'.join([' '.join(cell.operations) for cell in row])+'\n')
             json_result += ']]}'
             file.write(json_result)
 
