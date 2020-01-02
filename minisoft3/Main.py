@@ -219,7 +219,7 @@ class Main:
         with open(filename, 'r') as file:
             loaded_json = file.read()
             json_data = json.loads(loaded_json)
-            for row in json_data:
+            for row in json_data['map']:
                 temp = []
                 for col in row:
                     temp.append(Cell(self.emoji, col['operations']))
