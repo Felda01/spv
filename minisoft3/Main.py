@@ -182,13 +182,13 @@ class Main:
 
     def save_map(self, filename):
         with open(filename, 'w') as file:
-            json_result = '{"map": ['
+            json_result = '{"map": [['
 
             json_result += '],['.join([','.join(['{"operations": ["' + '","'.join(cell.operations) + '"]}' for cell in row]) for row in self.map])
             # for row in self.map:
             #     json_result += ','.join(['{"operations": ["' + '","'.join(cell.operations) + '"]}' for cell in row])
                 # file.write('#'.join([' '.join(cell.operations) for cell in row])+'\n')
-            json_result += ']}'
+            json_result += ']]}'
             file.write(json_result)
 
     def select_file_save(self):
