@@ -15,7 +15,8 @@ TRANSLATOR = {'heal': 'život +1',
               'move_right': 'doprava',
               'move_left': 'doľava',
               'move_up': 'hore',
-              'move_down': 'dole'}
+              'move_down': 'dole',
+              'goal': 'cieľ'}
 
 
 class Cell:
@@ -25,6 +26,7 @@ class Cell:
         self.is_changeable = operations == []
 
     def execute_move(self):
+        #TODO ked vypadne mimo, zabi ho
         self.emoji.attributes['stamina'] -= 1
         for op in self.operations:
             operation = Main.OPERATIONS[op]
@@ -88,7 +90,7 @@ class Emoji:
             image = self.images[-1]
         canvas.create_image((self.attributes['col']+1.5)*Main.CELL_WIDTH, (self.attributes['row']+1.5)*Main.CELL_HEIGHT, image=image)
         for i in range(self.attributes['life']):
-            canvas.create_image((i+0.5)*Main.CELL_WIDTH, 0.5*Main.CELL_HEIGHT, image=self.life_image)
+            canvas.create_image((i+1.5)*Main.CELL_WIDTH, 0.5*Main.CELL_HEIGHT, image=self.life_image)
 
 
 class Main:
@@ -130,10 +132,13 @@ class Main:
         self.load_operations()
 
         # MENU
-        self.menu = Menu(self.canvas_bottom, tearoff=0)
+        self.game_menu = Menu(self.canvas_bottom, tearoff=0)
+        self.create_menu = Menu(self.canvas_bottom, tearoff=0)
         for operation in self.OPERATIONS:
+            if operation != 'empty':
+                self.create_menu.add_command(label=TRANSLATOR[operation], command=partial(self.add_operation, operation))
             if operation not in ['goal', 'empty']:
-                self.menu.add_command(label=TRANSLATOR[operation], command=partial(self.add_operation, operation))
+                self.game_menu.add_command(label=TRANSLATOR[operation], command=partial(self.add_operation, operation))
         
         self.map = []
         self.emoji = None
@@ -151,9 +156,15 @@ class Main:
         if self.selected_cell is None:
             return
         try:
-            self.menu.tk_popup(event.x_root+55, event.y_root, 0)
+            if self.emoji is None:
+                self.create_menu.tk_popup(event.x_root+55, event.y_root, 0)
+            else:
+                self.game_menu.tk_popup(event.x_root+55, event.y_root, 0)
         finally:
-            self.menu.grab_release()
+            if self.emoji is None:
+                self.create_menu.grab_release()
+            else:
+                self.game_menu.grab_release()
 
     def add_operation(self, operation):
         if self.selected_cell is not None:
@@ -179,13 +190,13 @@ class Main:
             self.was_reset = True
 
     def create_map(self):
-        rows = simpledialog.askinteger(title="Riadky", prompt='Počet riadkov')
-        cols = simpledialog.askinteger(title="Stĺpce", prompt='Počet stĺpcov')
+        rows = simpledialog.askinteger(title="Riadky", prompt='Počet riadkov - max 9')
+        cols = simpledialog.askinteger(title="Stĺpce", prompt='Počet stĺpcov - max 14')
         self.map = []
         self.emoji = None
-        for i in range(rows):
+        for i in range(min(9,rows)):
             temp = []
-            for j in range(cols):
+            for j in range(min(14,cols)):
                 temp.append(Cell(self.emoji, []))
             self.map.append(temp)
         self.paint()
