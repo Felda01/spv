@@ -157,19 +157,27 @@ class Main:
 
     def add_operation(self, operation):
         if self.selected_cell is not None:
-            r = re.compile('move_.*')
-            move_operations_in_selected_cell = list(filter(r.match, self.selected_cell.operations))
+            move_operations_in_selected_cell = []
+            life_operations_in_selected_cell = []
+
+            if re.match('.*move_.*', operation):
+                r_move = re.compile('.*move_.*')
+                move_operations_in_selected_cell = list(filter(r_move.match, self.selected_cell.operations))
+
+            if re.match('.*life_.*', operation):
+                r_life = re.compile('.*life_.*')
+                life_operations_in_selected_cell = list(filter(r_life.match, self.selected_cell.operations))
 
             if move_operations_in_selected_cell:
                 for item in move_operations_in_selected_cell:
                     self.selected_cell.operations.remove(item)
 
+            if life_operations_in_selected_cell:
+                for item in life_operations_in_selected_cell:
+                    self.selected_cell.operations.remove(item)
+
             self.selected_cell.operations.append(operation)
 
-            # if operation in self.selected_cell.operations:
-            #     self.selected_cell.operations.remove(operation)
-            # else:
-            #     self.selected_cell.operations.append(operation)
             self.selected_cell = None
             self.paint()
     
