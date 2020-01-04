@@ -1,7 +1,7 @@
-move_left#col#-1
-move_right#col#1
-move_up#row#-1
-move_down#row#1
-heal#life#1
-damage#life#-1
-goal#is_in_goal#1
+move_left#Doľava#move_left#col#-1
+move_right#doprava#move_right#col#1
+move_up#Hore#move_up#row#-1
+move_down#Dole#move_down#row#1
+life_heal#Život +1#heal#life#1
+life_damage#Život -1#damage#life#-1
+move_down_right#Dole doprava#move_down_right#col row#1 1

@@ -10,20 +10,15 @@ import re
 PATH_PROJECT = './minisoft3/'
 PATH_IMAGES = PATH_PROJECT+'images/'
 PATH_IMAGES_PLAYER = PATH_IMAGES + 'player/'
-TRANSLATOR = {'heal': 'život +1',
-              'damage': 'život -1',
-              'move_right': 'doprava',
-              'move_left': 'doľava',
-              'move_up': 'hore',
-              'move_down': 'dole',
-              'goal': 'cieľ'}
 
 
 class Cell:
     def __init__(self, emoji, operations):
         self.emoji = emoji
         self.operations = operations
-        self.is_changeable = operations == []
+        if self.operations == ['']:
+            self.operations = []
+        self.is_changeable = self.operations == []
 
     def execute_move(self):
         #TODO ked vypadne mimo, zabi ho
@@ -41,6 +36,7 @@ class Cell:
                         self.emoji.attributes[att[0]] += att[1]
 
     def execute_effects(self):
+        #TODO zomri
         for op in self.operations:
             operation = Main.OPERATIONS[op]
             temp = set()
@@ -60,14 +56,14 @@ class Emoji:
         self.attributes['row'] = 0
         self.attributes['col'] = -1
         self.attributes['life'] = life
-        self.attributes['stamina'] = stamina
+        self.attributes['stamina'] = 1000
         self.attributes['is_in_goal'] = 0
         self.images = [PhotoImage(file=PATH_IMAGES_PLAYER+'life_0.png'),
                        PhotoImage(file=PATH_IMAGES_PLAYER+'life_1.png'),
                        PhotoImage(file=PATH_IMAGES_PLAYER+'life_2.png'),
                        PhotoImage(file=PATH_IMAGES_PLAYER+'life_3.png'),
                        PhotoImage(file=PATH_IMAGES_PLAYER+'init.png')]
-        self.life_image = Main.OPERATIONS['heal']['image']
+        self.life_image = PhotoImage(file=PATH_IMAGES+'heal.png')
 
     def can_execute(self):
         return self.attributes['life'] > 0 and self.attributes['is_in_goal'] == 0 and self.attributes['stamina'] > 0
@@ -136,9 +132,9 @@ class Main:
         self.create_menu = Menu(self.canvas_bottom, tearoff=0)
         for operation in self.OPERATIONS:
             if operation != 'empty':
-                self.create_menu.add_command(label=TRANSLATOR[operation], command=partial(self.add_operation, operation))
+                self.create_menu.add_command(label=self.OPERATIONS[operation]['title'], command=partial(self.add_operation, operation))
             if operation not in ['goal', 'empty']:
-                self.game_menu.add_command(label=TRANSLATOR[operation], command=partial(self.add_operation, operation))
+                self.game_menu.add_command(label=self.OPERATIONS[operation]['title'], command=partial(self.add_operation, operation))
         
         self.map = []
         self.emoji = None
@@ -168,27 +164,32 @@ class Main:
 
     def add_operation(self, operation):
         if self.selected_cell is not None:
-            move_operations_in_selected_cell = []
-            life_operations_in_selected_cell = []
+            if operation == 'goal':
+                self.selected_cell.operations = ['goal']
+            elif 'goal' in self.selected_cell.operations:
+                self.selected_cell.operations = [operation]
+            else:
+                move_operations_in_selected_cell = []
+                life_operations_in_selected_cell = []
 
-            if re.match('.*move_.*', operation):
-                r_move = re.compile('.*move_.*')
-                move_operations_in_selected_cell = list(filter(r_move.match, self.selected_cell.operations))
+                if re.match('.*move_.*', operation):
+                    r_move = re.compile('.*move_.*')
+                    move_operations_in_selected_cell = list(filter(r_move.match, self.selected_cell.operations))
 
-            if re.match('.*life_.*', operation):
-                r_life = re.compile('.*life_.*')
-                life_operations_in_selected_cell = list(filter(r_life.match, self.selected_cell.operations))
+                if re.match('.*life_.*', operation):
+                    r_life = re.compile('.*life_.*')
+                    life_operations_in_selected_cell = list(filter(r_life.match, self.selected_cell.operations))
 
-            if move_operations_in_selected_cell:
-                for item in move_operations_in_selected_cell:
-                    self.selected_cell.operations.remove(item)
+                if move_operations_in_selected_cell:
+                    for item in move_operations_in_selected_cell:
+                        self.selected_cell.operations.remove(item)
 
-            if life_operations_in_selected_cell:
-                for item in life_operations_in_selected_cell:
-                    self.selected_cell.operations.remove(item)
+                if life_operations_in_selected_cell:
+                    for item in life_operations_in_selected_cell:
+                        self.selected_cell.operations.remove(item)
 
-            self.selected_cell.operations.append(operation)
-
+                self.selected_cell.operations.append(operation)
+            self.selected_cell.operations.sort()
             self.selected_cell = None
             self.paint()
     
@@ -198,8 +199,8 @@ class Main:
             self.was_reset = True
 
     def create_map(self):
-        rows = simpledialog.askinteger(title="Riadky", prompt='Počet riadkov - max 9')
-        cols = simpledialog.askinteger(title="Stĺpce", prompt='Počet stĺpcov - max 14')
+        rows = max(simpledialog.askinteger(title="Riadky", prompt='Počet riadkov - max 9'),1)
+        cols = max(simpledialog.askinteger(title="Stĺpce", prompt='Počet stĺpcov - max 14'),1)
         self.map = []
         self.emoji = None
         for i in range(min(9,rows)):
@@ -210,6 +211,7 @@ class Main:
         self.paint()
 
     def save_map(self, filename):
+        #TODO domcek
         with open(filename, 'w') as file:
             json_result = '{"map": [['
             json_result += '],['.join([','.join(['{"operations": ["' + '","'.join(cell.operations) + '"]}' for cell in row]) for row in self.map])
@@ -223,19 +225,26 @@ class Main:
 
     def load_operations(self):
         self.OPERATIONS['empty'] = dict()
+        self.OPERATIONS['empty']['title'] = 'Prázdne'
         self.OPERATIONS['empty']['attributes'] = []
         self.OPERATIONS['empty']['image'] = PhotoImage(file=PATH_IMAGES+'empty.png')
+        self.OPERATIONS['goal'] = dict()
+        self.OPERATIONS['goal']['title'] = 'Cieľ'
+        self.OPERATIONS['goal']['attributes'] = [['is_in_goal',1]]
+        self.OPERATIONS['goal']['image'] = PhotoImage(file=PATH_IMAGES+'goal.png')
         if os.path.isfile(PATH_PROJECT+'./operations.txt'):
-            with open(PATH_PROJECT+'./operations.txt', 'r') as file:
+            with open(PATH_PROJECT+'./operations.txt', 'r',encoding='utf8') as file:
                 for row in file:
                     operation = row.split('#')
                     name = operation[0]
-                    attributes = operation[1].split()
-                    values = operation[2].split()
+                    image_name = operation[2]
+                    attributes = operation[3].split()
+                    values = operation[4].split()
                     if len(attributes) == len(values) and len(values) > 0:
                         self.OPERATIONS[name] = dict()
+                        self.OPERATIONS[name]['title'] = operation[1]
                         self.OPERATIONS[name]['attributes'] = []
-                        self.OPERATIONS[name]['image'] = PhotoImage(file=PATH_IMAGES+name+'.png')
+                        self.OPERATIONS[name]['image'] = PhotoImage(file=PATH_IMAGES+image_name+'.png')
                         for i in range(len(attributes)):
                             self.OPERATIONS[name]['attributes'].append([attributes[i], int(values[i])])
 
@@ -261,6 +270,7 @@ class Main:
         return True
 
     def start_move(self):
+        #TODO messagebox
         if self.emoji is not None and self.emoji.attributes['col'] == -1 and self.are_all_cells_selected():
             self.emoji.attributes['row'] = 0
             self.emoji.attributes['col'] = 0
@@ -279,6 +289,7 @@ class Main:
             self.was_reset = False
             return
         if self.emoji is not None and self.emoji.can_execute():
+            #TODO si mimo? zomri
             self.map[self.emoji.attributes['row']][self.emoji.attributes['col']].execute_move()
             self.map[self.emoji.attributes['row']][self.emoji.attributes['col']].execute_effects()
             self.paint()
