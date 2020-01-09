@@ -9,11 +9,10 @@ import json
 
 class Item:
     def __init__(self, color: str, name=''):
-        self.name = name
         self.color = color
         self.focus = False
         self.focus_border_color = '#FF0000'
-        self.s = StringVar()
+        self.name = StringVar(value=name)
         self.entry = None
 
     def draw_item(self, canvas: Canvas):
@@ -22,11 +21,11 @@ class Item:
     def draw_info(self, canvas: Canvas):
         if not self.focus:
             return
-
-        self.entry = Entry(master=canvas, text=self.name, font=Main.FONT_STYLE, width=8, textvariable=self.s)
+        if self.entry is None:
+            self.entry = Entry(master=canvas, font=Main.FONT_STYLE, width=8, textvariable=self.name)
         self.entry.place(x=Main.LEFT_WIDTH // 2 + 15, y=50)
-        self.entry.delete(0, END)
-        self.entry.insert(0, self.name)
+        #self.entry.delete(0, END)
+        #self.entry.insert(0, self.name.get())
         self.entry.focus_set()
         canvas.create_text(30, 50, text='Meno', anchor=NW, fill='green', font=Main.FONT_STYLE)
 
@@ -39,7 +38,7 @@ class Person(Item):
         super().__init__(color, name)
         self.x = x
         self.y = y
-        self.a = 7 * len(self.name)  # set x-radius
+        self.a = 7 * len(self.name.get())  # set x-radius
         self.b = 20                  # set y-radius
         self.entry = None
         if uid:
@@ -56,7 +55,7 @@ class Person(Item):
             outline = self.focus_border_color
         canvas.create_oval(self.x - self.a, self.y - self.b, self.x + self.a, self.y + self.b,
                            fill=self.color, outline=outline, width=2)
-        canvas.create_text(self.x, self.y, text=self.name, font=Main.FONT_STYLE)
+        canvas.create_text(self.x, self.y, text=self.name.get(), font=Main.FONT_STYLE)
 
     def draw_info(self, canvas: Canvas):
         canvas.create_text(Main.LEFT_WIDTH // 2, 28, text='OSOBA', fill='green', font=Main.FONT_STYLE)
@@ -84,9 +83,8 @@ class Person(Item):
     def change(self):
         if self.entry is not None:
             self.entry.place_forget()
-        if self.s.get() != '':
-            self.name = self.s.get()
-            self.a = 7 * len(self.name)  # set x-radius
+        if self.name.get() != '':
+            self.a = 7 * len(self.name.get())  # set x-radius
 
 
 class Relation(Item):
@@ -135,7 +133,7 @@ class Relation(Item):
         if self.focus:
             color = self.focus_border_color
         canvas.create_line(parent_x, parent_y, child_x, child_y, width=3, arrow=LAST, arrowshape=(20, 40, 10), fill=color)
-        canvas.create_text((self.parent.x+self.child.x)/2, (self.parent.y+self.child.y)/2, text=self.name, font=Main.FONT_STYLE, fill='crimson')
+        canvas.create_text((self.parent.x+self.child.x)/2, (self.parent.y+self.child.y)/2, text=self.name.get(), font=Main.FONT_STYLE, fill='crimson')
 
     def load(self, properties: dict):
         if 'color' not in properties or 'parent' not in properties or 'child' not in properties or 'name' not in properties or 'uid' not in properties:
@@ -144,7 +142,7 @@ class Relation(Item):
         return True
 
     def save(self):
-        return '{"uid" : "' + str(self.uid) + '", "parent" : "' + str(self.parent.uid) + '","child" : "' + str(self.child.uid) + '","name" : "' + self.name + '","color" : "' + self.color + '"}'
+        return '{"uid" : "' + str(self.uid) + '", "parent" : "' + str(self.parent.uid) + '","child" : "' + str(self.child.uid) + '","name" : "' + self.name.get() + '","color" : "' + self.color + '"}'
 
     def click_distance(self, event):
         if min(self.parent.x, self.child.x) > event.x or max(self.parent.x, self.child.x) < event.x or min(self.parent.y, self.child.y) > event.y or max(self.parent.y, self.child.y) < event.y:
@@ -156,8 +154,6 @@ class Relation(Item):
     def change(self):
         if self.entry is not None:
             self.entry.place_forget()
-        if self.s.get() != '':
-            self.name = self.s.get()
 
 
 class Exercise:
@@ -613,6 +609,8 @@ class Main:
     def delete_canvas(self):
         self.canvas_right.delete('all')
         self.canvas_right.create_image(0,0,image=self.background_right,anchor=NW)
+        for item in self.picked:
+            item.change()
         self.canvas_left.delete('all')
         self.canvas_left.create_image(0, 0, image=self.background_left, anchor=NW)
 
