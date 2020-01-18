@@ -19,9 +19,17 @@ class Cell:
         if self.operations == ['']:
             self.operations = []
         self.is_changeable = self.operations == []
+        self.action_index = 0
+
+    def next(self):
+        if self.is_changeable:
+            self.action_index = (self.action_index + 1) % len(Main.ADDED_ACTIONS)
+            if self.action_index == 0:
+                self.operations = []
+            else:
+                self.operations = [Main.ADDED_ACTIONS[self.action_index]]
 
     def execute_move(self):
-        #TODO ked vypadne mimo, zabi ho
         self.emoji.attributes['stamina'] -= 1
         for op in self.operations:
             operation = Main.OPERATIONS[op]
@@ -36,7 +44,6 @@ class Cell:
                         self.emoji.attributes[att[0]] += att[1]
 
     def execute_effects(self):
-        #TODO zomri
         for op in self.operations:
             operation = Main.OPERATIONS[op]
             temp = set()
@@ -52,6 +59,7 @@ class Cell:
 
 class Emoji:
     def __init__(self, life, stamina):
+        self.is_death = False
         self.attributes = dict()
         self.attributes['row'] = 0
         self.attributes['col'] = -1
@@ -84,6 +92,8 @@ class Emoji:
         image = self.images[self.attributes['life']]
         if self.attributes['col'] == -1:
             image = self.images[-1]
+        if self.is_death:
+            image = self.images[0]
         canvas.create_image((self.attributes['col']+1.5)*Main.CELL_WIDTH, (self.attributes['row']+1.5)*Main.CELL_HEIGHT, image=image)
         for i in range(self.attributes['life']):
             canvas.create_image((i+1.5)*Main.CELL_WIDTH, 0.5*Main.CELL_HEIGHT, image=self.life_image)
@@ -99,6 +109,7 @@ class Main:
     CELL_WIDTH = 64
     CELL_HEIGHT = 64
     OPERATIONS = dict()
+    ADDED_ACTIONS = ['empty','move_up','move_right','move_down','move_left']
 
     def __init__(self):
         self.window = Tk()
@@ -131,10 +142,7 @@ class Main:
         self.game_menu = Menu(self.canvas_bottom, tearoff=0)
         self.create_menu = Menu(self.canvas_bottom, tearoff=0)
         for operation in self.OPERATIONS:
-            if operation != 'empty':
-                self.create_menu.add_command(label=self.OPERATIONS[operation]['title'], command=partial(self.add_operation, operation))
-            if operation not in ['goal', 'empty']:
-                self.game_menu.add_command(label=self.OPERATIONS[operation]['title'], command=partial(self.add_operation, operation))
+            self.create_menu.add_command(label=self.OPERATIONS[operation]['title'], command=partial(self.add_operation, operation))
         
         self.map = []
         self.emoji = None
@@ -151,21 +159,23 @@ class Main:
             self.selected_cell = self.map[row][col]
         if self.selected_cell is None:
             return
+        if self.emoji is not None and self.selected_cell is not None:
+            self.selected_cell.next()
         try:
             if self.emoji is None:
                 self.create_menu.tk_popup(event.x_root+55, event.y_root, 0)
-            else:
-                self.game_menu.tk_popup(event.x_root+55, event.y_root, 0)
         finally:
             if self.emoji is None:
                 self.create_menu.grab_release()
-            else:
-                self.game_menu.grab_release()
+        if self.emoji is not None:
+            self.paint()
 
     def add_operation(self, operation):
         if self.selected_cell is not None:
             if operation == 'goal':
                 self.selected_cell.operations = ['goal']
+            elif operation == 'empty':
+                self.selected_cell.operations = []
             elif 'goal' in self.selected_cell.operations:
                 self.selected_cell.operations = [operation]
             else:
@@ -194,13 +204,20 @@ class Main:
             self.paint()
     
     def reset(self):
+        if self.emoji is None:
+            messagebox.showinfo("Chyba", "V tvoriacom režime nevieš resetovať pohyb cestovateľa.")
         if self.emoji is not None:
             self.start_game(self.filename)
             self.was_reset = True
 
     def create_map(self):
-        rows = max(simpledialog.askinteger(title="Riadky", prompt='Počet riadkov - max 9'),1)
-        cols = max(simpledialog.askinteger(title="Stĺpce", prompt='Počet stĺpcov - max 14'),1)
+        def nvl(var,val):
+            if var is None:
+                return val 
+            return var
+
+        rows = max(nvl(simpledialog.askinteger(title="Riadky", prompt='Počet riadkov - max 9',minvalue=1,maxvalue=9),1),1)
+        cols = max(nvl(simpledialog.askinteger(title="Stĺpce", prompt='Počet stĺpcov - max 14',minvalue=1,maxvalue=14),1),1)
         self.map = []
         self.emoji = None
         for i in range(min(9,rows)):
@@ -211,7 +228,6 @@ class Main:
         self.paint()
 
     def save_map(self, filename):
-        #TODO domcek
         with open(filename, 'w') as file:
             json_result = '{"map": [['
             json_result += '],['.join([','.join(['{"operations": ["' + '","'.join(cell.operations) + '"]}' for cell in row]) for row in self.map])
@@ -219,6 +235,18 @@ class Main:
             file.write(json_result)
 
     def select_file_save(self):
+        if self.emoji is not None:
+            messagebox.showinfo("Chyba", "V hráčskom režime nevieš uložit mapu.")
+            return
+        was_goal = False
+        for row in self.map:
+            for cell in row:
+                if 'goal' in cell.operations:
+                    was_goal = True
+                    break
+        if not was_goal:
+            messagebox.showinfo("Chyba", "V mape sa nenachádza Cieľ pre cestovateľa.")
+            return
         filename = filedialog.asksaveasfile(mode='w', defaultextension=".json")
         if filename is not None and filename.name:
             self.save_map(filename.name)
@@ -249,17 +277,23 @@ class Main:
                             self.OPERATIONS[name]['attributes'].append([attributes[i], int(values[i])])
 
     def start_game(self, filename):
-        self.filename = filename
-        self.map = []
-        self.emoji = Emoji(3, 10)
-        with open(filename, 'r') as file:
-            loaded_json = file.read()
-            json_data = json.loads(loaded_json)
-            for row in json_data['map']:
-                temp = []
-                for col in row:
-                    temp.append(Cell(self.emoji, col['operations']))
-                self.map.append(temp)
+        try:
+            self.filename = filename
+            self.map = []
+            self.emoji = Emoji(3, 10)
+            self.was_reset = False
+            with open(filename, 'r') as file:
+                loaded_json = file.read()
+                json_data = json.loads(loaded_json)
+                for row in json_data['map']:
+                    temp = []
+                    for col in row:
+                        temp.append(Cell(self.emoji, col['operations']))
+                    self.map.append(temp)
+        except:
+            messagebox.showinfo("Chyba", "Zlý vstupný súbor.")
+            self.select_file()
+            return
         self.paint()
 
     def are_all_cells_selected(self):
@@ -270,12 +304,21 @@ class Main:
         return True
 
     def start_move(self):
-        #TODO messagebox
+        if self.emoji is None:
+            messagebox.showinfo("Chyba", "V tvoriacom režime nevieš spustiť pohyb cestovateľa.")
+        elif self.emoji.attributes['col'] != -1:
+            messagebox.showinfo("Chyba", "Cestovateľ sa už vydal na svoju cestu.")
+        elif not self.are_all_cells_selected():
+            messagebox.showinfo("Chyba", "Treba zaplniť všetky prázdne bunky.")
         if self.emoji is not None and self.emoji.attributes['col'] == -1 and self.are_all_cells_selected():
             self.emoji.attributes['row'] = 0
             self.emoji.attributes['col'] = 0
             self.map[0][0].execute_effects()
+            self.was_reset = False
             self.paint()
+            if self.emoji.attributes['is_in_goal'] == 1:
+                messagebox.showinfo("Výhra", "Cestovateľ úspešne dorazil do cieľa.")
+                return
             self.canvas_bottom.after(1000, self.animate)
 
     def select_file(self):
@@ -289,12 +332,22 @@ class Main:
             self.was_reset = False
             return
         if self.emoji is not None and self.emoji.can_execute():
-            #TODO si mimo? zomri
             self.map[self.emoji.attributes['row']][self.emoji.attributes['col']].execute_move()
             self.map[self.emoji.attributes['row']][self.emoji.attributes['col']].execute_effects()
             self.paint()
             self.canvas_bottom.update()
-            self.canvas_bottom.after(1000, self.animate)
+            if self.emoji.attributes['is_in_goal'] == 1:
+                messagebox.showinfo("Výhra", "Cestovateľ úspešne dorazil do cieľa.")
+                return
+            if self.emoji.attributes['life'] <= 0:
+                messagebox.showinfo("Smrť", "Cestovateľ zomrel po ceste do cieľa.")
+                return
+            if self.emoji.attributes['row'] <= -1 or self.emoji.attributes['row'] >= len(self.map) or self.emoji.attributes['col'] <= -1 or self.emoji.attributes['col'] >= len(self.map[0]):
+                self.emoji.is_death = True
+                self.paint()
+                messagebox.showinfo("Pokus o útek", "Cestovateľ utiekol po ceste do cieľa.")
+                return
+            self.canvas_bottom.after(1000, self.animate)   
     
     def paint(self):
         self.canvas_bottom.delete('all')

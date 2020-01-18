@@ -1,5 +1,5 @@
 move_left#Doľava#move_left#col#-1
-move_right#doprava#move_right#col#1
+move_right#Doprava#move_right#col#1
 move_up#Hore#move_up#row#-1
 move_down#Dole#move_down#row#1
 life_heal#Život +1#heal#life#1
