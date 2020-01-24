@@ -94,7 +94,7 @@ class Emoji:
             image = self.images[-1]
         if self.is_death:
             image = self.images[0]
-        canvas.create_image((self.attributes['col']+1.5)*Main.CELL_WIDTH, (self.attributes['row']+1.5)*Main.CELL_HEIGHT, image=image)
+        canvas.create_image((self.attributes['col']+1.5)*Main.CELL_WIDTH, (self.attributes['row']+2.5)*Main.CELL_HEIGHT, image=image)
         for i in range(self.attributes['life']):
             canvas.create_image((i+1.5)*Main.CELL_WIDTH, 0.5*Main.CELL_HEIGHT, image=self.life_image)
 
@@ -154,7 +154,7 @@ class Main:
     def choosing_menu(self, event):
         self.selected_cell = None
         col = (event.x - self.CELL_WIDTH) // self.CELL_WIDTH
-        row = (event.y - self.CELL_HEIGHT) // self.CELL_HEIGHT
+        row = (event.y - 2*self.CELL_HEIGHT) // self.CELL_HEIGHT
         if 0 <= row < len(self.map) and 0 <= col < len(self.map[row]) and self.map[row][col].is_changeable:
             self.selected_cell = self.map[row][col]
         if self.selected_cell is None:
@@ -216,11 +216,11 @@ class Main:
                 return val 
             return var
 
-        rows = max(nvl(simpledialog.askinteger(title="Riadky", prompt='Počet riadkov - max 9',minvalue=1,maxvalue=9),1),1)
+        rows = max(nvl(simpledialog.askinteger(title="Riadky", prompt='Počet riadkov - max 8',minvalue=1,maxvalue=8),1),1)
         cols = max(nvl(simpledialog.askinteger(title="Stĺpce", prompt='Počet stĺpcov - max 14',minvalue=1,maxvalue=14),1),1)
         self.map = []
         self.emoji = None
-        for i in range(min(9,rows)):
+        for i in range(min(8,rows)):
             temp = []
             for j in range(min(14,cols)):
                 temp.append(Cell(self.emoji, []))
@@ -306,11 +306,13 @@ class Main:
     def start_move(self):
         if self.emoji is None:
             messagebox.showinfo("Chyba", "V tvoriacom režime nevieš spustiť pohyb cestovateľa.")
+        elif self.emoji.is_death:
+            messagebox.showinfo("Chyba", "Cestovateľ je po smrti.")
         elif self.emoji.attributes['col'] != -1:
             messagebox.showinfo("Chyba", "Cestovateľ sa už vydal na svoju cestu.")
         elif not self.are_all_cells_selected():
             messagebox.showinfo("Chyba", "Treba zaplniť všetky prázdne bunky.")
-        if self.emoji is not None and self.emoji.attributes['col'] == -1 and self.are_all_cells_selected():
+        elif self.emoji is not None and self.emoji.attributes['col'] == -1 and self.are_all_cells_selected():
             self.emoji.attributes['row'] = 0
             self.emoji.attributes['col'] = 0
             self.map[0][0].execute_effects()
@@ -354,13 +356,13 @@ class Main:
         for i in range(len(self.map)):
             for j in range(len(self.map[i])):
                 if self.map[i][j].is_changeable:
-                    self.canvas_bottom.create_rectangle((j+1)*self.CELL_WIDTH, (i+1)*self.CELL_HEIGHT, (j+2)*self.CELL_WIDTH, (i+2)*self.CELL_HEIGHT, fill='yellowgreen')
+                    self.canvas_bottom.create_rectangle((j+1)*self.CELL_WIDTH, (i+2)*self.CELL_HEIGHT, (j+2)*self.CELL_WIDTH, (i+3)*self.CELL_HEIGHT, fill='yellowgreen')
                 else:
-                    self.canvas_bottom.create_rectangle((j+1)*self.CELL_WIDTH, (i+1)*self.CELL_HEIGHT, (j+2)*self.CELL_WIDTH, (i+2)*self.CELL_HEIGHT, fill='dodgerblue')
+                    self.canvas_bottom.create_rectangle((j+1)*self.CELL_WIDTH, (i+2)*self.CELL_HEIGHT, (j+2)*self.CELL_WIDTH, (i+3)*self.CELL_HEIGHT, fill='dodgerblue')
                 for operation in self.map[i][j].operations:
-                    self.canvas_bottom.create_image((j+1.5)*self.CELL_WIDTH, (i+1.5)*self.CELL_HEIGHT, image=self.OPERATIONS[operation]['image'])
+                    self.canvas_bottom.create_image((j+1.5)*self.CELL_WIDTH, (i+2.5)*self.CELL_HEIGHT, image=self.OPERATIONS[operation]['image'])
                 if not self.map[i][j].operations:
-                    self.canvas_bottom.create_image((j+1.5)*self.CELL_WIDTH, (i+1.5)*self.CELL_HEIGHT, image=self.OPERATIONS['empty']['image'])
+                    self.canvas_bottom.create_image((j+1.5)*self.CELL_WIDTH, (i+2.5)*self.CELL_HEIGHT, image=self.OPERATIONS['empty']['image'])
         if self.emoji is not None:
             self.emoji.paint(self.canvas_bottom)
 

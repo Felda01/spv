@@ -1,3 +1,0 @@
-heal move_right#move_right#damage move_down
-#move_left#heal move_left
-damage move_right#goal#move_left
