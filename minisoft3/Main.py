@@ -7,7 +7,7 @@ from functools import partial
 import json
 import re
 
-PATH_PROJECT = './minisoft3/'
+PATH_PROJECT = './'
 PATH_IMAGES = PATH_PROJECT+'images/'
 PATH_IMAGES_PLAYER = PATH_IMAGES + 'player/'
 

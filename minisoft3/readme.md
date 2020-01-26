@@ -10,11 +10,11 @@
 ##Hranie
 
 **Hra** 
-* 
-* 
-* 
+* Hra sa ovlada klikanim mysou
+* Po vybere mapy treba za kazdy otaznik nahradit akciou, klikanim
+* Cestovatel ma vzdy 3 zivoty
 
-**Mapa** 
-* 
-* 
-* 
+**Tvorba mapy** 
+* Nastroj pre ucitelov na tvorbu map
+* Treba zadat potrebny pocet riadkov a stlpcov a nasledne vyplnat polia
+* Po ulozeni je mapa pripravena na hranie
